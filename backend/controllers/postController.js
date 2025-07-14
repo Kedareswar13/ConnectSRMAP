@@ -5,6 +5,7 @@ const { uploadToCloudinary } = require("../utils/cloudinary");
 const Post = require("../models/postModel");
 const User = require("../models/userModel");
 const Comment = require("../models/commentModel")
+const Notification = require("../models/notificationModel");
 
 exports.createPost = catchAsync(async (req, res, next) => {
   const { caption } = req.body;
@@ -123,15 +124,34 @@ exports.saveOrUnsavePost = catchAsync(async (req, res, next) => {
   const postId = req.params.id;
 
   const user = await User.findById(userId);
+  const post = await Post.findById(postId).populate("user");
 
   if (!user) return next(new AppError("User not found", 404));
+  if (!post) return next(new AppError("Post not found", 404));
 
   // Check if post is already saved
   const isPostSaved = user.savedPosts.includes(postId);
 
   if (isPostSaved) {
-    user.savedPosts.pull(postId); // Remove post from saved list
+    // Unsave post
+    user.savedPosts.pull(postId);
     await user.save({ validateBeforeSave: false });
+
+    // Create unsave notification if it's not their own post
+    if (post.user._id.toString() !== userId.toString()) {
+      await Notification.create({
+        type: "unsave",
+        user: {
+          username: user.username,
+          profilePicture: user.profilePicture,
+          _id: userId
+        },
+        recipient: post.user._id,
+        message: `${user.username} removed your post from their saved collection`,
+        postId: post._id,
+        read: false
+      });
+    }
 
     return res.status(200).json({
       status: "success",
@@ -141,8 +161,25 @@ exports.saveOrUnsavePost = catchAsync(async (req, res, next) => {
       },
     });
   } else {
-    user.savedPosts.push(postId); // Save post
+    // Save post
+    user.savedPosts.push(postId);
     await user.save({ validateBeforeSave: false });
+
+    // Create save notification if it's not their own post
+    if (post.user._id.toString() !== userId.toString()) {
+      await Notification.create({
+        type: "save",
+        user: {
+          username: user.username,
+          profilePicture: user.profilePicture,
+          _id: userId
+        },
+        recipient: post.user._id,
+        message: `${user.username} saved your post`,
+        postId: post._id,
+        read: false
+      });
+    }
 
     return res.status(200).json({
       status: "success",
@@ -196,30 +233,64 @@ exports.likeOrDislikePost = catchAsync(async (req, res, next) => {
   const { id } = req.params;
   const userId = req.user._id;
 
-  const post = await Post.findById(id);
+  const post = await Post.findById(id).populate("user");
 
   if (!post) return next(new AppError("Post not found", 404));
 
   const isLiked = post.likes.includes(userId);
 
-  let updatedPost;
   if (isLiked) {
-    // Unlike the post (remove user from likes array)
-    updatedPost = await Post.findByIdAndUpdate(
+    // Unlike the post
+    await Post.findByIdAndUpdate(
       id,
       { $pull: { likes: userId } },
       { new: true }
     );
+
+    // Create unlike notification if it's not their own post
+    if (post.user._id.toString() !== userId.toString()) {
+      await Notification.create({
+        type: "unlike",
+        user: {
+          username: req.user.username,
+          profilePicture: req.user.profilePicture,
+          _id: userId
+        },
+        recipient: post.user._id,
+        message: `${req.user.username} removed their like from your post`,
+        postId: post._id,
+        read: false
+      });
+    }
+
     return res.status(200).json({
       status: "success",
       message: "Post disliked Successfully",
     });
   } else {
-    updatedPost = await Post.findByIdAndUpdate(
+    // Like the post
+    await Post.findByIdAndUpdate(
       id,
       { $addToSet: { likes: userId } },
       { new: true }
     );
+
+    // Create like notification if it's not their own post
+    if (post.user._id.toString() !== userId.toString()) {
+      await Notification.create({
+        type: "like",
+        user: {
+          username: req.user.username,
+          profilePicture: req.user.profilePicture,
+          _id: userId
+        },
+        recipient: post.user._id,
+        message: `${req.user.username} liked your post`,
+        postId: post._id,
+        read: false
+      });
+    }
+
     return res.status(200).json({
       status: "success",
       message: "Post liked Successfully",
@@ -233,7 +304,7 @@ exports.addComment = catchAsync(async (req, res, next) => {
   const { text } = req.body;
 
   // Check if post exists
-  const post = await Post.findById(postId);
+  const post = await Post.findById(postId).populate("user");
   if (!post) return next(new AppError("Post not found", 404));
 
   // Check if text is provided
@@ -249,6 +320,22 @@ exports.addComment = catchAsync(async (req, res, next) => {
   // Add comment to post's comments array
   post.comments.push(comment);
   await post.save({ validateBeforeSave: false });
+
+  // Create comment notification if it's not their own post
+  if (post.user._id.toString() !== userId.toString()) {
+    await Notification.create({
+      type: "comment",
+      user: {
+        username: req.user.username,
+        profilePicture: req.user.profilePicture,
+        _id: userId
+      },
+      recipient: post.user._id,
+      message: `${req.user.username} commented on your post: "${text}"`,
+      postId: post._id,
+      read: false
+    });
+  }
 
   // Populate user details in the comment
   await comment.populate({

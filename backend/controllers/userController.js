@@ -3,6 +3,7 @@ const catchAsync = require("../utils/catchAsync");
 const AppError = require("../utils/appError");
 const getDataUri = require("../utils/datauri");
 const { uploadToCloudinary } = require("../utils/cloudinary");
+const Notification = require("../models/notificationModel");
 
 exports.getProfile = catchAsync(async (req, res, next) => {
   const { id } = req.params;
@@ -83,62 +84,100 @@ exports.suggestedUser = catchAsync(async (req, res, next) => {
 });
 
 exports.followUnfollow = catchAsync(async (req, res, next) => {
-  const loginUserId = req.user._id;
-  const targetUserId = req.params.id;
+  const { id } = req.params;
+  const userId = req.user._id;
+  const { notificationData } = req.body;
 
-  if (loginUserId.toString() === targetUserId) {
-    return next(new AppError("You cannot follow/unfollow yourself", 400));
-  }
+  // Check if user exists
+  const userToFollow = await User.findById(id);
+  if (!userToFollow) return next(new AppError("User not found", 404));
 
-  const targetUser = await User.findById(targetUserId);
-  const loginUser = await User.findById(loginUserId);
+  // Check if user is trying to follow themselves
+  if (id === userId.toString())
+    return next(new AppError("You cannot follow yourself", 400));
 
-  if (!targetUser) {
-    return next(new AppError("User not found", 404));
-  }
+  const user = await User.findById(userId);
+  if (!user) return next(new AppError("User not found", 404));
 
-  const isFollowing = targetUser.followers.includes(loginUserId);
+  const isFollowing = user.following.includes(id);
 
   if (isFollowing) {
-    // Unfollow logic
-    await Promise.all([
-      User.updateOne(
-        { _id: loginUserId },
-        { $pull: { following: targetUserId } }
-      ),
-      User.updateOne(
-        { _id: targetUserId },
-        { $pull: { followers: loginUserId } }
-      ),
-    ]);
+    // Unfollow
+    await User.findByIdAndUpdate(userId, { $pull: { following: id } });
+    await User.findByIdAndUpdate(id, { $pull: { followers: userId } });
+
+    // Create unfollow notification
+    await Notification.create({
+      type: "unfollow",
+      user: {
+        username: user.username,
+        profilePicture: user.profilePicture,
+        _id: userId
+      },
+      recipient: id,
+      message: `${user.username} unfollowed you`,
+      targetUserId: userId,
+      read: false
+    });
+
+    // Get updated user data
+    const updatedUser = await User.findById(userId)
+      .select("-password -passwordConfirm -otp -otpExpires -resetPasswordOTP -resetPasswordOTPExpires")
+      .populate("following", "username profilePicture")
+      .populate("followers", "username profilePicture")
+      .populate("posts");
+
+    return res.status(200).json({
+      status: "success",
+      message: "User unfollowed successfully",
+      data: {
+        user: updatedUser,
+      },
+    });
   } else {
-    // Follow logic
-    await Promise.all([
-      User.updateOne(
-        { _id: loginUserId },
-        { $addToSet: { following: targetUserId } }
-      ),
-      User.updateOne(
-        { _id: targetUserId },
-        { $addToSet: { followers: loginUserId } }
-      ),
-    ]);
+    // Follow
+    await User.findByIdAndUpdate(userId, { $addToSet: { following: id } });
+    await User.findByIdAndUpdate(id, { $addToSet: { followers: userId } });
+
+    // Create follow notification
+    if (notificationData) {
+      await Notification.create({
+        ...notificationData,
+        recipient: id,
+      });
+    }
+
+    // Get updated user data
+    const updatedUser = await User.findById(userId)
+      .select("-password -passwordConfirm -otp -otpExpires -resetPasswordOTP -resetPasswordOTPExpires")
+      .populate("following", "username profilePicture")
+      .populate("followers", "username profilePicture")
+      .populate("posts");
+
+    return res.status(200).json({
+      status: "success",
+      message: "User followed successfully",
+      data: {
+        user: updatedUser,
+      },
+    });
   }
+});
 
-  const updatedLoggedInUser = await User.findById(loginUserId).select(
-    "-password"
-  );
+exports.getUserNotifications = catchAsync(async (req, res, next) => {
+  const userId = req.user._id;
 
-  if (!updatedLoggedInUser) {
-    return next(
-      new AppError("Something went wrong. User not found after update.", 500)
-    );
-  }
+  const notifications = await Notification.find({ recipient: userId })
+    .sort({ createdAt: -1 })
+    .populate("user._id", "username profilePicture")
+    .populate("postId", "media caption")
+    .populate("targetUserId", "username profilePicture");
 
-  res.status(200).json({
+  return res.status(200).json({
     status: "success",
-    message: isFollowing ? "Unfollowed successfully" : "Followed successfully",
-    user: updatedLoggedInUser,
+    data: {
+      notifications,
+    },
   });
 });
 
@@ -153,5 +192,56 @@ exports.getMe = catchAsync(async (req, res, next) => {
     status: "success",
     message: "Authenticated User",
     data: { user },
+  });
+});
+
+// Add endpoint to mark notification as read
+exports.markNotificationAsRead = catchAsync(async (req, res, next) => {
+  const { notificationId } = req.params;
+  const userId = req.user._id;
+
+  const notification = await Notification.findById(notificationId);
+  
+  if (!notification) {
+    return next(new AppError("Notification not found", 404));
+  }
+
+  if (notification.recipient.toString() !== userId.toString()) {
+    return next(new AppError("Not authorized to update this notification", 403));
+  }
+
+  notification.read = true;
+  await notification.save();
+
+  return res.status(200).json({
+    status: "success",
+    message: "Notification marked as read",
+  });
+});
+
+exports.searchUsers = catchAsync(async (req, res, next) => {
+  const { query } = req.query;
+
+  if (!query) {
+    return next(new AppError('Please provide a search query', 400));
+  }
+
+  // Create a case-insensitive regex pattern for the search query
+  const searchPattern = new RegExp(query, 'i');
+
+  // Search for users where username matches the pattern
+  const users = await User.find({
+    username: searchPattern,
+    // Exclude the current user from results
+    _id: { $ne: req.user._id }
+  })
+  .select('username profilePicture bio')
+  .limit(20); // Limit results to 20 users
+
+  res.status(200).json({
+    status: 'success',
+    data: {
+      users
+    }
   });
 });
