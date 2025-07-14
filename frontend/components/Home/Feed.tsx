@@ -5,23 +5,30 @@ import axios from "axios";
 import React, { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { handleAuthRequest } from "../utils/apiRequest";
-import { likeOrDislike, setPost } from "@/store/postSlice";
-import { Bookmark, HeartIcon, Loader, MessageCircle, Send } from "lucide-react";
-import { Avatar, AvatarImage } from "../ui/avatar";
+import { likeOrDislike, setPost, addComment } from "@/store/postSlice";
+import { HeartIcon, Loader, MessageCircle, Send, Bookmark } from "lucide-react";
+import { Avatar, AvatarImage, AvatarFallback } from "../ui/avatar";
+import { Dialog, DialogContent } from "../ui/dialog";
 import DotButton from "../Helper/DotButton";
 import Image from "next/image";
 import Comments from "../Helper/Comments";
 import { toast } from "sonner";
 import { setAuthUser } from "@/store/authSlice";
+import { Post as PostType, User } from "@/types";
+import { Button } from "../ui/button";
+import Notifications from "../Helper/Notifications";
+import { toggleNotifications } from "@/store/notificationSlice";
+import PostDialog from "../Profile/PostDialog";
 
 const Feed = () => {
   const dispatch = useDispatch();
   const user = useSelector((state: RootState) => state.auth.user);
   const posts = useSelector((state: RootState) => state.posts.posts);
-  const [comment, setComment] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  // Global animation state; this triggers animation on all hearts
   const [animateHeart, setAnimateHeart] = useState(false);
+  const [animateBookmark, setAnimateBookmark] = useState(false);
+  const [selectedPost, setSelectedPost] = useState<PostType | null>(null);
+  const [showDialog, setShowDialog] = useState(false);
 
   useEffect(() => {
     const getAllPost = async () => {
@@ -38,7 +45,7 @@ const Feed = () => {
     getAllPost();
   }, [dispatch]);
 
-  const handleLikeDislike = async (id: string) => {
+  const handleLikeDislike = async (id: string, postUser: User) => {
     if (!user || !user._id) {
       toast.error("User not found. Please log in.");
       return;
@@ -50,13 +57,27 @@ const Feed = () => {
     try {
       const result = await axios.post(
         `${BASE_API_URL}/posts/like-dislike/${id}`,
-        {},
+        {
+          notificationData: {
+            id: Date.now().toString(),
+            type: "like",
+            user: {
+              username: user.username,
+              profilePicture: user.profilePicture,
+              _id: user._id
+            },
+            message: `${user.username} liked your post`,
+            createdAt: new Date().toISOString(),
+            read: false,
+            postId: id
+          }
+        },
         { withCredentials: true }
       );
 
       if (result.data.status === "success") {
         dispatch(likeOrDislike({ postId: id, userId: user._id }));
-        toast(result.data.message); // "Post liked" or "Post disliked"
+        toast(result.data.message);
       } else {
         toast.error("Something went wrong!");
       }
@@ -67,27 +88,124 @@ const Feed = () => {
   };
 
   const handleSaveUnsave = async (id: string) => {
-    const result = await axios.post(
-      `${BASE_API_URL}/posts/save-unsave-post/${id}`,
-      {},
-      { withCredentials: true }
-    );
+    if (!user || !user._id) {
+      toast.error("User not found. Please log in.");
+      return;
+    }
 
-    if (result.data.status == "success") {
-      dispatch(setAuthUser(result.data.data.user));
-      toast.success(result.data.message);
+    // Trigger the pop animation
+    setAnimateBookmark(true);
+    setTimeout(() => setAnimateBookmark(false), 500);
+
+    try {
+      const result = await axios.post(
+        `${BASE_API_URL}/posts/save-unsave-post/${id}`,
+        {},
+        { withCredentials: true }
+      );
+
+      if (result.data.status === "success") {
+        // Update the Redux auth state with the returned user
+        dispatch(setAuthUser(result.data.data.user));
+        toast.success(result.data.message);
+      } else {
+        toast.error("Something went wrong!");
+      }
+    } catch (error: any) {
+      console.error("Error saving/unsaving post:", error);
+      toast.error(error?.response?.data?.message || "Failed to save/unsave post");
     }
   };
 
-  const handleComment = async (id: string) => {
-    // Implement comment functionality here.
+  const handleComment = async (postId: string, commentText: string) => {
+    if (!user || !user._id) {
+      toast.error("User not found. Please log in.");
+      return;
+    }
+
+    if (!commentText.trim()) {
+      toast.error("Comment cannot be empty");
+      return;
+    }
+
+    try {
+      const result = await axios.post(
+        `${BASE_API_URL}/posts/comment/${postId}`,
+        { text: commentText },
+        { withCredentials: true }
+      );
+
+      if (result.data.status === "success") {
+        dispatch(addComment({ postId, comment: result.data.data.comment }));
+        toast.success("Comment added successfully");
+      } else {
+        toast.error("Something went wrong!");
+      }
+    } catch (error: any) {
+      console.error("Error adding comment:", error);
+      toast.error(error?.response?.data?.message || "Failed to add comment");
+    }
   };
 
-  const scrollToComments = (postId: string) => {
-    const element = document.getElementById(`comments-${postId}`);
-    if (element) {
-      element.scrollIntoView({ behavior: "smooth" });
+  const openComments = (post: PostType) => {
+    setSelectedPost(post);
+  };
+
+  // Helper function to check if a post is saved.
+  const isPostSaved = (postId: string): boolean => {
+    if (!user || !user.savedPosts) return false;
+    return user.savedPosts.some((saved) => {
+      if (!saved) return false;
+      if (typeof saved === "object" && saved._id) {
+        return String(saved._id) === String(postId);
+      }
+      return String(saved) === String(postId);
+    });
+  };
+
+  const handleFollow = async (userId: string, username: string) => {
+    try {
+      const result = await axios.post(
+        `${BASE_API_URL}/users/follow-unfollow/${userId}`,
+        {
+          notificationData: {
+            id: Date.now().toString(),
+            type: "follow",
+            user: {
+              username: user?.username || "",
+              profilePicture: user?.profilePicture || "",
+              _id: user?._id || ""
+            },
+            message: `${user?.username} started following you`,
+            createdAt: new Date().toISOString(),
+            read: false,
+            targetUserId: user?._id
+          }
+        },
+        { withCredentials: true }
+      );
+
+      if (result.data.status === "success") {
+        dispatch(setAuthUser(result.data.data.user));
+        toast.success(result.data.message);
+      }
+    } catch (error: any) {
+      console.error("Follow error:", error);
+      toast.error(error?.response?.data?.message || "Failed to follow user");
     }
+  };
+
+  const isFollowing = (userId: string): boolean => {
+    if (!user || !user.following) return false;
+    return user.following.includes(userId);
+  };
+
+  const handleNotificationToggle = () => {
+    dispatch(toggleNotifications());
+  };
+
+  const isPostLiked = (post: PostType): boolean => {
+    return post.likes.includes(user?._id || '');
   };
 
   if (isLoading) {
@@ -110,15 +228,25 @@ const Feed = () => {
     <>
       <div className="mt-10 w-[70%] mx-auto">
         {posts.map((post) => (
-          <div key={post._id} className="mt-8 border-b pb-6">
+          <div 
+            key={post._id} 
+            id={`post-${post._id}`}
+            className="mt-8 border-b pb-6"
+          >
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-2">
-                <Avatar className="w-9 h-9">
+                <div className="w-9 h-9 rounded-full overflow-hidden flex-shrink-0">
+                  <Avatar className="w-full h-full">
                   <AvatarImage
                     src={post.user?.profilePicture}
-                    className="h-full w-full"
+                      className="w-full h-full object-cover"
+                      alt={post.user?.username || "User"}
                   />
+                    <AvatarFallback>
+                      {post.user?.username?.charAt(0).toUpperCase() || "U"}
+                    </AvatarFallback>
                 </Avatar>
+                </div>
                 <h1 className="font-semibold">{post.user?.username}</h1>
               </div>
               <DotButton post={post} user={user} />
@@ -146,75 +274,84 @@ const Feed = () => {
             {/* Action Buttons */}
             <div className="mt-3 flex items-center justify-between">
               <div className="flex items-center space-x-4">
+                <div className="flex items-center space-x-2">
+                  <button
+                    onClick={() => handleLikeDislike(post._id, post.user)}
+                    className="focus:outline-none"
+                  >
                 <HeartIcon
-                  onClick={() => handleLikeDislike(post._id)}
-                  className={`cursor-pointer transition-transform duration-300 ${
+                      className={`w-6 h-6 cursor-pointer transition-transform duration-300 ${
                     user && post.likes.includes(user._id)
                       ? "text-red-500 fill-red-500"
                       : "text-gray-500"
                   } ${animateHeart ? "animate-like-pop" : ""}`}
                 />
-                <MessageCircle className="cursor-pointer text-gray-500" />
-                <Send className="cursor-pointer text-gray-500" />
+                  </button>
+                  <span className="text-sm font-semibold">{post.likes.length}</span>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <button
+                    className="focus:outline-none"
+                    onClick={() => {
+                      setSelectedPost(post);
+                      setShowDialog(true);
+                    }}
+                  >
+                    <MessageCircle className="w-6 h-6 cursor-pointer text-gray-500" />
+                  </button>
+                  <span className="text-sm font-semibold">{post.comments.length}</span>
+                </div>
+                <Send className="w-6 h-6 cursor-pointer text-gray-500" />
               </div>
-              <Bookmark
-                onClick={() => handleSaveUnsave(post?._id)}
-                className={`cursor-pointer text-gray-500 ${
-                  (user?.savedPosts as string[])?.some(
-                    (savePostId: string) => savePostId === post._id
-                  )
-                    ? "text-red-500"
-                    : " "
-                }`}
+              <button
+                onClick={() => handleSaveUnsave(post._id)}
+                className="focus:outline-none"
+              >
+                <Bookmark
+                  className={`w-6 h-6 cursor-pointer transition-transform duration-300 ${
+                  isPostSaved(post._id)
+                      ? "text-blue-500 fill-blue-500"
+                    : "text-gray-500"
+                  } ${animateBookmark ? "animate-like-pop" : ""}`}
               />
+              </button>
             </div>
 
-            {/* Likes and Caption */}
-            <h1 className="mt-2 text-sm font-semibold">
-              {post.likes.length} likes
-            </h1>
+            {/* Caption */}
             {post.caption && (
               <p className="mt-2 font-semibold">{post.caption}</p>
             )}
-
-            {/* Comments */}
-            <Comments post={post} user={user} />
-
-            {/* Add Comment Input */}
-            <div className="mt-2 flex items-center">
-              <input
-                type="text"
-                placeholder="Add a Comment ..."
-                className="flex-1 border border-gray-300 rounded px-3 py-1 placeholder-gray-800 outline-none"
-                value={comment}
-                onChange={(e) => setComment(e.target.value)}
-              />
-              <p
-                role="button"
-                className="ml-2 text-sm font-semibold text-blue-700 cursor-pointer"
-                onClick={() => handleComment(post._id)}
-              >
-                Post
-              </p>
-            </div>
-            <div className="pb-6 border-b-2"></div>
-            <div id={`comments-${post._id}`}></div>
           </div>
         ))}
       </div>
 
-      {/* Global CSS for heart animation */}
+      {/* Post Dialog */}
+      {selectedPost && (
+        <PostDialog
+          post={selectedPost}
+          isOpen={showDialog}
+          onClose={() => {
+            setShowDialog(false);
+            setSelectedPost(null);
+          }}
+          userProfile={selectedPost.user}
+          currentUser={user}
+          onLike={handleLikeDislike}
+          onSave={handleSaveUnsave}
+          onComment={handleComment}
+          isLiked={isPostLiked(selectedPost)}
+          isSaved={isPostSaved(selectedPost._id)}
+          animateHeart={animateHeart}
+          animateBookmark={animateBookmark}
+        />
+      )}
+
+      {/* Global CSS for animations */}
       <style jsx global>{`
         @keyframes like-pop {
-          0% {
-            transform: scale(1);
-          }
-          50% {
-            transform: scale(1.5);
-          }
-          100% {
-            transform: scale(1);
-          }
+          0% { transform: scale(1); }
+          50% { transform: scale(1.5); }
+          100% { transform: scale(1); }
         }
         .animate-like-pop {
           animation: like-pop 0.5s ease-in-out;

@@ -7,51 +7,239 @@ import {
   MessageCircle,
   Search,
   SquarePlus,
+  Bell,
+  ArrowLeft,
 } from "lucide-react";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
 import { useDispatch, useSelector } from "react-redux";
 import { RootState } from "@/store/store";
 import Image from "next/image";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import axios from "axios";
 import { BASE_API_URL } from "@/server";
-import { setAuthUser } from "@/store/authSlice";
+import { signOut } from "@/store/authSlice";
 import { toast } from "sonner";
 import CreatePostModel from "./CreatePostModel";
+import { toggleNotifications, markNotificationAsRead, fetchNotifications } from "@/store/notificationSlice";
+import { formatTimestamp } from "@/utils/formatTime";
+import { AppDispatch } from "@/store/store";
+import { Dialog } from "../ui/dialog";
+import Link from "next/link";
+import SearchComponent from "../Helper/Search";
 
+type Notification = {
+  _id: string;
+  type: "follow" | "unfollow" | "like" | "unlike" | "save" | "unsave";
+  user: {
+    _id: string;
+    username: string;
+    profilePicture: string;
+  };
+  postId?: string;
+  read: boolean;
+  createdAt: string;
+};
+
+const formatNotificationTime = (createdAt: string) => {
+  const now = new Date();
+  const notificationDate = new Date(createdAt);
+  
+  // Check if it's the same day
+  if (
+    now.getDate() === notificationDate.getDate() &&
+    now.getMonth() === notificationDate.getMonth() &&
+    now.getFullYear() === notificationDate.getFullYear()
+  ) {
+    // For same day, show time
+    return notificationDate.toLocaleTimeString('en-US', {
+      hour: 'numeric',
+      minute: 'numeric',
+      hour12: true
+    });
+  }
+
+  // For different day but within a week, show day name
+  const diffInDays = Math.floor((now.getTime() - notificationDate.getTime()) / (1000 * 60 * 60 * 24));
+  if (diffInDays < 7) {
+    return notificationDate.toLocaleDateString('en-US', { weekday: 'long' });
+  }
+
+  // For older notifications, show full date
+  return notificationDate.toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric'
+  });
+};
 
 const LeftSidebar = () => {
-  const user = useSelector((state: RootState) => state.auth.user);
   const router = useRouter();
-  const dispatch = useDispatch();
-  const [isDialogOpen ,setIsDialogOpen] = useState(false);
-  const handleLogout = async () => {
-    try {
-      await axios.post(
-        `${BASE_API_URL}/users/logout`,
-        {},
-        { withCredentials: true }
-      );
+  const pathname = usePathname();
+  const dispatch = useDispatch<AppDispatch>();
+  const { notifications, isOpen, loading, error } = useSelector((state: RootState) => state.notifications);
+  const user = useSelector((state: RootState) => state.auth.user);
   
-      dispatch(setAuthUser(null));
-      toast.success("Logged out successfully");
-      router.push("/auth/login");
+  // Get the user ID once and use it consistently
+  const userId = user?._id;
+
+  // Memoize the filtered notifications
+  const userNotifications = React.useMemo(() => {
+    if (!userId) return [];
+    return notifications.filter((notification) => notification.recipient === userId);
+  }, [notifications, userId]);
+  
+  // Memoize the unread count
+  const unreadCount = React.useMemo(() => 
+    userNotifications.filter(notif => !notif.read).length,
+    [userNotifications]
+  );
+
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [showSearch, setShowSearch] = useState(false);
+  const [isNavigating, setIsNavigating] = useState(false);
+
+  // Handle notifications fetching
+  React.useEffect(() => {
+    let mounted = true;
+
+    const fetchNotificationsIfNeeded = async () => {
+      if (!isOpen || !userId) return;
+      
+      try {
+        await dispatch(fetchNotifications());
+      } catch (err) {
+        if (mounted) {
+          console.error("Error fetching notifications:", err);
+        }
+      }
+    };
+
+    fetchNotificationsIfNeeded();
+
+    return () => {
+      mounted = false;
+    };
+  }, [isOpen, userId, dispatch]);
+
+  // Handle error logging separately
+  React.useEffect(() => {
+    if (error) {
+      console.error("Notification error:", error);
+    }
+  }, [error]);
+
+  const handleSidebar = async (label: "Home" | "Search" | "Messages" | "Notifications" | "Create" | "Profile" | "Logout") => {
+    if (label === "Logout") {
+      handleLogout();
+      return;
+    }
+    
+    if (label === "Create") {
+      setIsDialogOpen(true);
+      return;
+    }
+    
+    if (label === "Notifications") {
+      dispatch(toggleNotifications());
+      return;
+    }
+    
+    if (label === "Search") {
+      setShowSearch(true);
+      return;
+    }
+
+    // Handle navigation with loading state
+    setIsNavigating(true);
+    try {
+      if (label === "Home") {
+        await router.push("/");
+      } else if (label === "Profile") {
+        await router.push(`/profile/${user?._id}`);
+      }
     } catch (error) {
-      console.error("Logout failed:", error);
-      toast.error("Logout failed");
+      console.error("Navigation error:", error);
+      toast.error("Failed to navigate. Please try again.");
+    } finally {
+      setIsNavigating(false);
     }
   };
-  
-  const handleSidebar = async (label: string) => {
-    if (label === "Home") router.push("/");
-    if (label === "Logout") handleLogout();
-    if(label === "Profile") router.push(`/profile/${user?._id}`);
-    if(label === "Create") setIsDialogOpen(true);
+
+  const handleLogout = async () => {
+    if (isLoggingOut) return;
+    
+    setIsLoggingOut(true);
+    try {
+      const response = await axios.post(
+        `${BASE_API_URL}/users/logout`, 
+        {}, 
+        { 
+          withCredentials: true,
+          headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+
+      if (response.data.status === "success") {
+        dispatch(signOut());
+        router.replace("/auth/login");
+      } else {
+        throw new Error(response.data.message || "Failed to logout");
+      }
+    } catch (error: any) {
+      console.error("Logout error:", error);
+      toast.error(error?.response?.data?.message || "Failed to logout. Please try again.");
+    } finally {
+      setIsLoggingOut(false);
+    }
   };
+
+  const handleNotificationClick = async (notification: Notification) => {
+    if (!notification.read) {
+      await dispatch(markNotificationAsRead(notification._id));
+    }
+    
+    setIsNavigating(true);
+    try {
+      if (notification.postId) {
+        await router.push(`/post/${notification.postId}`);
+      } else {
+        await router.push(`/profile/${notification.user._id}`);
+      }
+    } catch (error) {
+      console.error("Navigation error:", error);
+      toast.error("Failed to navigate. Please try again.");
+    } finally {
+      setIsNavigating(false);
+    }
+  };
+
+  const getNotificationMessage = (notification: Notification) => {
+    switch (notification.type) {
+      case "follow":
+        return "started following you";
+      case "unfollow":
+        return "unfollowed you";
+      case "like":
+        return "liked your post";
+      case "unlike":
+        return "unliked your post";
+      case "save":
+        return "saved your post";
+      case "unsave":
+        return "unsaved your post";
+      default:
+        return "";
+    }
+  };
+
   const SidebarLinks = [
     {
-      icon: <HomeIcon className="w-5 h-5" />,
+      icon: <HomeIcon className={`w-5 h-5 ${isNavigating ? 'animate-pulse' : ''}`} />,
       label: "Home",
     },
     {
@@ -63,7 +251,16 @@ const LeftSidebar = () => {
       label: "Messages",
     },
     {
-      icon: <Heart className="w-5 h-5" />,
+      icon: (
+        <div className="relative">
+          <Bell className="w-5 h-5" />
+          {unreadCount > 0 && (
+            <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-4 h-4 flex items-center justify-center">
+              {unreadCount}
+            </span>
+          )}
+        </div>
+      ),
       label: "Notifications",
     },
     {
@@ -72,60 +269,141 @@ const LeftSidebar = () => {
     },
     {
       icon: (
-        <Avatar className="w-7 h-7">
-          <AvatarImage
-            src={user?.profilePicture}
-            className="h-full w-full"
-          />
-          <AvatarFallback>CN</AvatarFallback>
-        </Avatar>
+        <div className={`w-7 h-7 rounded-full overflow-hidden flex-shrink-0 ${isNavigating ? 'animate-pulse' : ''}`}>
+          <Avatar className="w-full h-full">
+            <AvatarImage
+              src={user?.profilePicture}
+              className="w-full h-full object-cover"
+              alt={user?.username || "User"}
+            />
+            <AvatarFallback>
+              {user?.username?.charAt(0).toUpperCase() || "U"}
+            </AvatarFallback>
+          </Avatar>
+        </div>
       ),
       label: "Profile",
     },
     {
-      icon: <LogOut className="w-5 h-5" />,
-      label: "Logout",
+      icon: <LogOut className={`w-5 h-5 ${isLoggingOut ? 'animate-spin' : ''}`} />,
+      label: isLoggingOut ? "Logging out..." : "Logout",
     },
   ];
 
   return (
-    <div className="h-full">
-      <CreatePostModel isOpen = {isDialogOpen} onClose = {() => setIsDialogOpen(false)}/>
-      <div className="m-2 mt-3 lg:p-6 p-3 cursor-pointer">
-        <div
-          onClick={() => {
-            router.push("/");
-          }}
-
-        >
-          <Image
-            src="/images/logo.png"
-            alt="Logo"
-            width={150}
-            height={150}
-            className="mt-[-2rem]"
-          />
-        </div>
-
-        <div className="mt-6">
-          {SidebarLinks.map((link) => {
-            return (
-              <div
-                key={link.label}
-                className="flex items-center mb-2 p-2 rounded-lg group cursor-pointer 
-            transition-all duration-200 hover:bg-gray-100 space-x-2"
-            onClick={()=>handleSidebar(link.label)}
-              >
-                <div className="group-hover:scale-110 transition-all duration-200">
-                  {link.icon}
+    <>
+      <div className="h-screen fixed left-0 top-0 w-64 bg-white border-r border-gray-200">
+        <div className="h-full flex flex-col">
+          {!isOpen ? (
+            <>
+              <div className="m-2 mt-3 lg:p-6 p-3">
+                <div className="cursor-pointer" onClick={() => router.push('/')}>
+                  <Image
+                    src="/images/logo.png"
+                    alt="Logo"
+                    width={150}
+                    height={150}
+                    className="mt-[-2rem]"
+                    priority
+                  />
                 </div>
-                <p className="text-sm lg:text-base">{link.label}</p>
+
+                <div className="mt-6">
+                  {SidebarLinks.map((link) => (
+                    <div
+                      key={link.label}
+                      className={`flex items-center mb-2 p-2 rounded-lg group cursor-pointer 
+                      transition-all duration-200 hover:bg-gray-100 space-x-2 ${
+                        link.label === "Home" && pathname === "/" ? "bg-gray-100" : ""
+                      }`}
+                      onClick={() => handleSidebar(link.label as any)}
+                    >
+                      <div className="group-hover:scale-110 transition-all duration-200">
+                        {link.icon}
+                      </div>
+                      <p className="text-sm lg:text-base">{link.label}</p>
+                    </div>
+                  ))}
+                </div>
               </div>
-            );
-          })}
+            </>
+          ) : (
+            <div className="flex flex-col h-full">
+              <div className="p-4 border-b">
+                <div className="flex items-center gap-4">
+                  <button
+                    onClick={() => dispatch(toggleNotifications())}
+                    className="p-2 hover:bg-gray-100 rounded-full"
+                  >
+                    <ArrowLeft className="w-6 h-6" />
+                  </button>
+                  <h2 className="text-xl font-semibold">Notifications</h2>
+                </div>
+              </div>
+              
+              <div className="flex-1 overflow-y-auto">
+                {loading ? (
+                  <div className="flex justify-center items-center h-32">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+                  </div>
+                ) : userNotifications.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center h-full">
+                    <p className="text-center text-gray-500">No notifications yet</p>
+                  </div>
+                ) : (
+                  <div className="p-4 space-y-4">
+                    {userNotifications.map((notification) => (
+                      <div
+                        key={notification._id}
+                        onClick={() => handleNotificationClick(notification)}
+                        className={`p-4 rounded-lg cursor-pointer transition-colors ${
+                          notification.read ? "bg-white" : "bg-blue-50"
+                        } hover:bg-gray-50`}
+                      >
+                        <div className="flex items-start gap-3">
+                          <div className="w-10 h-10 rounded-full overflow-hidden flex-shrink-0">
+                            <Avatar className="w-full h-full">
+                              <AvatarImage
+                                src={notification.user.profilePicture}
+                                className="w-full h-full object-cover"
+                                alt={notification.user.username}
+                              />
+                              <AvatarFallback>
+                                {notification.user.username.charAt(0).toUpperCase()}
+                              </AvatarFallback>
+                            </Avatar>
+                          </div>
+                          <div>
+                            <p className="text-sm">
+                              <span className="font-semibold">{notification.user.username}</span>
+                              {" "}
+                              {getNotificationMessage(notification)}
+                            </p>
+                            <p className="text-xs text-gray-500 mt-1">
+                              {formatTimestamp(notification.createdAt)}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       </div>
-    </div>
+
+      {/* Search Component */}
+      {showSearch && (
+        <SearchComponent onClose={() => setShowSearch(false)} />
+      )}
+      
+      {/* Create Post Dialog */}
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <CreatePostModel isOpen={isDialogOpen} onClose={() => setIsDialogOpen(false)} />
+      </Dialog>
+    </>
   );
 };
 

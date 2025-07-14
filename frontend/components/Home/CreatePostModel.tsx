@@ -94,7 +94,7 @@ const CreatePostModal = ({ isOpen, onClose }: Props) => {
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent>
+      <DialogContent className="bg-white text-black dark:bg-neutral-900 dark:text-white shadow-xl">
         {previewUrl ? (
           // Show preview based on file type
           <div className="flex flex-col justify-center items-center text-center space-y-4">

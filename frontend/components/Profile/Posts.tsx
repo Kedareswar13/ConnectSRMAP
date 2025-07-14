@@ -3,7 +3,7 @@
 import { User, Post as PostType } from '../../types';
 import React, { useState } from 'react';
 import Image from 'next/image';
-import { HeartIcon, MessageCircle, Send } from "lucide-react";
+import { HeartIcon, MessageCircle, Send, Bookmark } from "lucide-react";
 import { useSelector, useDispatch } from 'react-redux';
 import { RootState } from '../../store/store';
 import { toast } from "sonner";
@@ -12,12 +12,14 @@ import { BASE_API_URL } from "../../server";
 import { setAuthUser } from "../../store/authSlice";
 import { likeOrDislike, addComment, deletePost } from "../../store/postSlice";
 import PostDialog from './PostDialog';
+import { Avatar, AvatarImage, AvatarFallback } from "../ui/avatar";
+import DotButton from "../Helper/DotButton";
 
 type Props = {
   userProfile: User | undefined;
 }
 
-const Post = ({ userProfile }: Props) => {
+const Posts = ({ userProfile }: Props) => {
   const dispatch = useDispatch();
   const [selectedPost, setSelectedPost] = useState<PostType | null>(null);
   const [showDialog, setShowDialog] = useState(false);
@@ -121,7 +123,7 @@ const Post = ({ userProfile }: Props) => {
   const handleDeletePost = async (postId: string) => {
     try {
       const result = await axios.delete(
-        `${BASE_API_URL}/posts/${postId}`,
+        `${BASE_API_URL}/posts/delete-post/${postId}`,
         { withCredentials: true }
       );
 
@@ -165,7 +167,7 @@ const Post = ({ userProfile }: Props) => {
           {userProfile.posts.map((post) => (
             <div 
               key={post._id} 
-              className="relative aspect-square group cursor-pointer"
+              className="relative aspect-square group"
               onClick={() => {
                 setSelectedPost(post);
                 setShowDialog(true);
@@ -248,4 +250,4 @@ const Post = ({ userProfile }: Props) => {
   );
 };
 
-export default Post;
+export default Posts; 

@@ -8,11 +8,13 @@ import { useSelector } from "react-redux";
 import { handleAuthRequest } from "../utils/apiRequest";
 import { Loader, Loader2 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
+import { toast } from "sonner";
 
 const RightSidebar = () => {
   const user = useSelector((state: RootState) => state.auth.user);
   const [suggestedUser, setSuggestedUser] = useState<User[]>([]);
-  const [isloading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isNavigating, setIsNavigating] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -26,14 +28,25 @@ const RightSidebar = () => {
 
       if (result) {
         setSuggestedUser(result.data.data.users);
-        console.log("SUGGESTED USER", result.data.data.users);
       }
     };
 
     getSuggestedUser();
   }, []);
 
-  if (isloading) {
+  const handleProfileClick = async (userId: string) => {
+    setIsNavigating(true);
+    try {
+      await router.push(`/profile/${userId}`);
+    } catch (error) {
+      console.error("Navigation error:", error);
+      toast.error("Failed to navigate. Please try again.");
+    } finally {
+      setIsNavigating(false);
+    }
+  };
+
+  if (isLoading) {
     return (
       <div className="w-full h-screen flex items-center justify-center flex-col">
         <Loader className="animate-spin" />
@@ -45,16 +58,23 @@ const RightSidebar = () => {
     <div>
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-4">
-          <Avatar className="w-9 h-9">
+          <div className="flex items-center space-x-2">
+            <div className={`w-12 h-12 rounded-full overflow-hidden flex-shrink-0 ${isNavigating ? 'animate-pulse' : ''}`}>
+              <Avatar className="w-full h-full">
             <AvatarImage
               src={user?.profilePicture}
-              className="h-full w-full rounded-full"
+                  className="w-full h-full object-cover"
+                  alt={user?.username || "User"}
             />
-            <AvatarFallback>CN</AvatarFallback>
+                <AvatarFallback>
+                  {user?.username?.charAt(0).toUpperCase() || "U"}
+                </AvatarFallback>
           </Avatar>
-          <div>
-            <h1 className="font-bold">{user?.username || "User name not loading"}</h1>
-            <p className="text-gray-700">{user?.bio || "My Profile Bio here"}</p>
+            </div>
+            <div className="flex flex-col">
+              <h1 className="font-semibold">{user?.username}</h1>
+              <p className="text-sm text-gray-500">{user?.bio}</p>
+            </div>
           </div>
         </div>
         <h1 className="font-medium text-blue-700 cursor-pointer">Switch</h1>
@@ -64,20 +84,28 @@ const RightSidebar = () => {
         <h1 className="font-medium cursor-pointer">See All</h1>
       </div>
       {suggestedUser?.slice(0, 5).map((s_user) => (
-        <div onClick={() => { router.push(`/profile/${s_user._id}`) }} 
-        key={s_user._id} className="mt-6 cursor-pointer">
+        <div 
+          onClick={() => handleProfileClick(s_user._id)} 
+          key={s_user._id} 
+          className="mt-6 cursor-pointer"
+        >
           <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4 cursor-pointer">
-              <Avatar className="w-9 h-9">
+            <div className="flex items-center space-x-2">
+              <div className={`w-10 h-10 rounded-full overflow-hidden flex-shrink-0 ${isNavigating ? 'animate-pulse' : ''}`}>
+                <Avatar className="w-full h-full">
                 <AvatarImage
                   src={s_user?.profilePicture}
-                  className="h-full w-full rounded-full"
+                    className="w-full h-full object-cover"
+                    alt={s_user?.username || "User"}
                 />
-                <AvatarFallback>CN</AvatarFallback>
+                  <AvatarFallback>
+                    {s_user?.username?.charAt(0).toUpperCase() || "U"}
+                  </AvatarFallback>
               </Avatar>
-              <div>
-                <h1 className="font-bold">{s_user?.username}</h1>
-                <p className="text-gray-700">{s_user?.bio || "My Profile Bio here"}</p>
+              </div>
+              <div className="flex flex-col">
+                <h1 className="font-semibold">{s_user?.username}</h1>
+                <p className="text-sm text-gray-500">{s_user?.bio || "My Profile Bio here"}</p>
               </div>
             </div>
             <h1 className="font-medium text-blue-700 cursor-pointer">Details</h1>

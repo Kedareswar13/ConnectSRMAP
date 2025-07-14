@@ -1,7 +1,7 @@
 const express = require("express");
 const { signup, verifyAccount, resendOtp, login, logout, forgetPassword, resetPassword, changePassword } = require("../controllers/authController");
 const isAuthenticated = require("../middleware/isAuthenticated");
-const { getProfile, editProfile, suggestedUser, followUnfollow, getMe } = require("../controllers/userController");
+const { getProfile, editProfile, suggestedUser, followUnfollow, getMe, getUserNotifications, markNotificationAsRead, searchUsers } = require("../controllers/userController");
 const upload = require("../middleware/multer");
 
 const router = express.Router();
@@ -17,9 +17,13 @@ router.post("/reset-password",resetPassword);
 router.post("/change-password",isAuthenticated,changePassword);
 
 //User Routes
-router.get("/profile/:id",getProfile)
+router.get("/profile/:id",getProfile);
+router.get("/search", isAuthenticated, searchUsers);
 router.post("/edit-profile/",isAuthenticated,upload.single("profilePicture"),editProfile);
 router.get("/suggested-user",isAuthenticated,suggestedUser);
 router.post("/follow-unfollow/:id",isAuthenticated,followUnfollow);
 router.get("/me",isAuthenticated,getMe);
+router.get("/notifications", isAuthenticated, getUserNotifications);
+router.post("/notifications/:notificationId/read", isAuthenticated, markNotificationAsRead);
+
 module.exports = router;

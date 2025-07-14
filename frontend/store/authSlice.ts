@@ -22,15 +22,16 @@ const authSlice = createSlice({
           username: username || "",
           profilePicture: profilePicture || "",
           bio: bio || "",
-           // Ensure savedPosts is preserved, defaulting to an empty array if not provided
-           savedPosts: savePosts || [],
         };
       } else {
         state.user = null;
       }
     },
+    signOut(state) {
+      state.user = null;
+    },
   },
 });
 
-export const { setAuthUser } = authSlice.actions;
+export const { setAuthUser, signOut } = authSlice.actions;
 export default authSlice.reducer;

@@ -11,19 +11,25 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
-import { MenuIcon } from "lucide-react";
+import { MenuIcon, ArrowLeft } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import LoadingButton from "@/components/Helper/loadingButton";
 import PasswordInput from "@/components/Auth/PasswordInput";
 import axios from "axios";
 import { BASE_API_URL } from "@/server";
 import { handleAuthRequest } from "@/components/utils/apiRequest";
-import { setAuthUser } from "@/store/authSlice";
+import { setAuthUser, signOut } from "@/store/authSlice";
 import { toast } from "sonner";
+import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 const EditProfile = () => {
+  const router = useRouter();
   const dispatch = useDispatch();
   const user = useSelector((state: RootState) => state.auth.user);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const [selectedImage, setSelectedImage] = useState<string | null>(
     user?.profilePicture || null
@@ -96,6 +102,32 @@ const EditProfile = () => {
     }
   };
 
+  const handleDeleteAccount = async () => {
+    if (!user?._id) return;
+
+    setIsDeleting(true);
+    try {
+      const result = await axios.delete(
+        `${BASE_API_URL}/users/delete-account`,
+        { withCredentials: true }
+      );
+
+      if (result.data.status === "success") {
+        dispatch(signOut());
+        toast.success("Account deleted successfully");
+        router.replace("/auth/login");
+      } else {
+        toast.error("Failed to delete account");
+      }
+    } catch (error: any) {
+      console.error("Error deleting account:", error);
+      toast.error(error?.response?.data?.message || "Failed to delete account");
+    } finally {
+      setIsDeleting(false);
+      setShowDeleteDialog(false);
+    }
+  };
+
   return (
     <div className="flex">
       <div className="w-[20%] hidden md:block border-r-2 h-screen fixed">
@@ -115,16 +147,31 @@ const EditProfile = () => {
           </Sheet>
         </div>
         <div className="w-[80%] mx-auto">
+          <div className="mt-16 flex items-center space-x-4">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => router.back()}
+              className="rounded-full"
+            >
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+            <h1 className="text-2xl font-bold">Edit Profile</h1>
+          </div>
           <div className="mt-16 pb-16 border-b-2">
             <div
               onClick={handleAvatarClick}
-              className="flex 
-                    items-center justify-center cursor-pointer"
+              className="flex items-center justify-center cursor-pointer"
             >
-              <Avatar className="w-[10rem] h-[10rem]">
-                <AvatarImage src={selectedImage || ""} />
-                <AvatarFallback>CN</AvatarFallback>
-              </Avatar>
+              <div className="w-[10rem] h-[10rem] rounded-full overflow-hidden">
+                <Avatar className="w-full h-full">
+                  <AvatarImage 
+                    src={selectedImage || ""} 
+                    className="w-full h-full object-cover"
+                  />
+                  <AvatarFallback>CN</AvatarFallback>
+                </Avatar>
+              </div>
             </div>
             <input
               type="file"
@@ -223,6 +270,49 @@ const EditProfile = () => {
               </div>
             </form>
           </div>
+          <div className="mt-10 pb-10 border-t-2">
+            <h1 className="text-2xl font-bold text-red-600 mt-6">
+              Danger Zone
+            </h1>
+            <p className="text-gray-600 mt-2 mb-4">
+              Once you delete your account, there is no going back. Please be certain.
+            </p>
+            <Button
+              variant="destructive"
+              onClick={() => setShowDeleteDialog(true)}
+              className="w-full max-w-xs"
+            >
+              Delete Account
+            </Button>
+          </div>
+
+          <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+            <DialogTitle>Delete Account</DialogTitle>
+            <DialogContent>
+              <DialogHeader>
+                <DialogDescription>
+                  Are you sure you want to delete your account? This action cannot be undone.
+                  All your posts, comments, and data will be permanently deleted.
+                </DialogDescription>
+              </DialogHeader>
+              <DialogFooter>
+                <Button
+                  variant="outline"
+                  onClick={() => setShowDeleteDialog(false)}
+                  disabled={isDeleting}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  variant="destructive"
+                  onClick={handleDeleteAccount}
+                  disabled={isDeleting}
+                >
+                  {isDeleting ? "Deleting..." : "Delete Account"}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </div>
       </div>
     </div>
