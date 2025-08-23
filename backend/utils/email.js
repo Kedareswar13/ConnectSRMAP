@@ -11,7 +11,7 @@ const sendEmail = async (options) => {
     });
 
     const mailOptions = {
-      from: `"LinkUp Connects the SRMAP Students" <${process.env.EMAIL}>`,
+      from: `"ConnectSRMAP - Connecting SRMAP Students" <${process.env.EMAIL}>`,
       to: options.email,
       subject: options.subject,
       html: options.html,

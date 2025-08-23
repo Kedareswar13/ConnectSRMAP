@@ -67,7 +67,7 @@ const Login = () => {
 
         <div className="lg:col-span-3 flex flex-col items-center justify-center h-screen">
           <h1 className="font-bold text-xl sm:text-2xl text-left uppercase mb-8">
-            Login with <span className="text-green-600">LinkUp SRMAP</span>
+            Login with <span className="text-green-600">ConnectSRMAP</span>
           </h1>
 
           <form

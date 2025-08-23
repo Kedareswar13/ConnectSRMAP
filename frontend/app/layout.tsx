@@ -11,8 +11,8 @@ const font = Roboto({
 });
 
 export const metadata: Metadata = {
-  title: "LinkUp SRMAP",
-  description: "LinkUp a social media application designed specially for SRMAP built with Next JS",
+  title: "ConnectSRMAP",
+  description: "ConnectSRMAP - A social media platform connecting SRMAP students, built with Next.js",
 };
 
 export default function RootLayout({
