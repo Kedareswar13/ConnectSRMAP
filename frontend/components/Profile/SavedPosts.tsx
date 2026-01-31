@@ -12,6 +12,7 @@ import { BASE_API_URL } from "../../server";
 import { setAuthUser } from "../../store/authSlice";
 import { likeOrDislike, addComment } from "../../store/postSlice";
 import PostDialog from './PostDialog';
+import type { AxiosError } from "axios";
 
 type Props = {
   userProfile: User | undefined;
@@ -24,7 +25,6 @@ const SavedPosts = ({ userProfile }: Props) => {
   const user = useSelector((state: RootState) => state.auth.user);
   const posts = useSelector((state: RootState) => state.posts.posts);
   const [animateHeart, setAnimateHeart] = useState(false);
-  const [animateBookmark, setAnimateBookmark] = useState(false);
   const [savedPosts, setSavedPosts] = useState<PostType[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -43,15 +43,16 @@ const SavedPosts = ({ userProfile }: Props) => {
       if (result.data.status === "success") {
         setSavedPosts(result.data.data.posts);
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error fetching saved posts:", error);
-      toast.error(error?.response?.data?.message || "Failed to fetch saved posts");
+      const axiosError = error as AxiosError<{ message?: string }>;
+      toast.error(axiosError?.response?.data?.message || "Failed to fetch saved posts");
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleLikeDislike = async (id: string, postUser: User) => {
+  const handleLikeDislike = async (id: string) => {
     if (!user?._id) {
       toast.error("Please login to like posts");
       return;
@@ -89,8 +90,9 @@ const SavedPosts = ({ userProfile }: Props) => {
         }
         toast.success("Post liked successfully");
       }
-    } catch (error: any) {
-      toast.error(error?.response?.data?.message || "Failed to like post");
+    } catch (error: unknown) {
+      const axiosError = error as AxiosError<{ message?: string }>;
+      toast.error(axiosError?.response?.data?.message || "Failed to like post");
     }
   };
 
@@ -99,9 +101,6 @@ const SavedPosts = ({ userProfile }: Props) => {
       toast.error("Please login to save posts");
       return;
     }
-
-    setAnimateBookmark(true);
-    setTimeout(() => setAnimateBookmark(false), 500);
 
     try {
       const result = await axios.post(
@@ -115,8 +114,9 @@ const SavedPosts = ({ userProfile }: Props) => {
         await fetchSavedPosts();
         toast.success("Post saved successfully");
       }
-    } catch (error: any) {
-      toast.error(error?.response?.data?.message || "Failed to save post");
+    } catch (error: unknown) {
+      const axiosError = error as AxiosError<{ message?: string }>;
+      toast.error(axiosError?.response?.data?.message || "Failed to save post");
     }
   };
 
@@ -146,8 +146,9 @@ const SavedPosts = ({ userProfile }: Props) => {
         }
         toast.success("Comment added successfully");
       }
-    } catch (error: any) {
-      toast.error(error?.response?.data?.message || "Failed to add comment");
+    } catch (error: unknown) {
+      const axiosError = error as AxiosError<{ message?: string }>;
+      toast.error(axiosError?.response?.data?.message || "Failed to add comment");
     }
   };
 
@@ -228,7 +229,7 @@ const SavedPosts = ({ userProfile }: Props) => {
             setShowDialog(false);
             setSelectedPost(null);
           }}
-          onLike={() => handleLikeDislike(selectedPost._id, selectedPost.user)}
+          onLike={() => handleLikeDislike(selectedPost._id)}
           onComment={handleComment}
           onSave={() => handleSaveUnsave(selectedPost._id)}
           isLiked={isPostLiked(selectedPost)}

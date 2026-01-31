@@ -10,6 +10,7 @@ import { BASE_API_URL } from "../../server";
 import { setAuthUser } from "../../store/authSlice";
 import { likeOrDislike, addComment } from "../../store/postSlice";
 import PostDialog from './PostDialog';
+import type { AxiosError } from "axios";
 
 type Props = {
     userProfile: User | undefined;
@@ -36,11 +37,12 @@ const Saved = ({userProfile} : Props) => {
     typeof post !== 'string'
   );
 
-  const handleLikeDislike = async (id: string, postUser: User) => {
+  const handleLikeDislike = async (id: string) => {
     if (!user || !user._id) {
       toast.error("Please login to like posts");
       return;
     }
+
     setAnimateHeart(true);
     setTimeout(() => setAnimateHeart(false), 500);
 
@@ -69,9 +71,10 @@ const Saved = ({userProfile} : Props) => {
         dispatch(likeOrDislike({ postId: id, userId: user._id }));
         toast.success(result.data.message);
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error liking/disliking post:", error);
-      toast.error(error?.response?.data?.message || "Failed to like post");
+      const axiosError = error as AxiosError<{ message?: string }>;
+      toast.error(axiosError?.response?.data?.message || "Failed to like post");
     }
   };
 
@@ -94,9 +97,10 @@ const Saved = ({userProfile} : Props) => {
         dispatch(setAuthUser(result.data.data.user));
         toast.success(result.data.message);
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error saving/unsaving post:", error);
-      toast.error(error?.response?.data?.message || "Failed to save post");
+      const axiosError = error as AxiosError<{ message?: string }>;
+      toast.error(axiosError?.response?.data?.message || "Failed to save post");
     }
   };
 
@@ -119,9 +123,10 @@ const Saved = ({userProfile} : Props) => {
         dispatch(addComment({ postId, comment: result.data.data.comment }));
         toast.success("Comment added successfully");
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error adding comment:", error);
-      toast.error(error?.response?.data?.message || "Failed to add comment");
+      const axiosError = error as AxiosError<{ message?: string }>;
+      toast.error(axiosError?.response?.data?.message || "Failed to add comment");
     }
   };
 
