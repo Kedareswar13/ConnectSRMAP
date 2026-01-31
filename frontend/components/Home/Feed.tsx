@@ -8,17 +8,13 @@ import { handleAuthRequest } from "../utils/apiRequest";
 import { likeOrDislike, setPost, addComment } from "@/store/postSlice";
 import { HeartIcon, Loader, MessageCircle, Send, Bookmark } from "lucide-react";
 import { Avatar, AvatarImage, AvatarFallback } from "../ui/avatar";
-import { Dialog, DialogContent } from "../ui/dialog";
 import DotButton from "../Helper/DotButton";
 import Image from "next/image";
-import Comments from "../Helper/Comments";
 import { toast } from "sonner";
 import { setAuthUser } from "@/store/authSlice";
 import { Post as PostType, User } from "@/types";
-import { Button } from "../ui/button";
-import Notifications from "../Helper/Notifications";
-import { toggleNotifications } from "@/store/notificationSlice";
 import PostDialog from "../Profile/PostDialog";
+import type { AxiosError } from "axios";
 
 const Feed = () => {
   const dispatch = useDispatch();
@@ -45,7 +41,7 @@ const Feed = () => {
     getAllPost();
   }, [dispatch]);
 
-  const handleLikeDislike = async (id: string, postUser: User) => {
+  const handleLikeDislike = async (id: string) => {
     if (!user || !user._id) {
       toast.error("User not found. Please log in.");
       return;
@@ -81,9 +77,10 @@ const Feed = () => {
       } else {
         toast.error("Something went wrong!");
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error liking/disliking post:", error);
-      toast.error(error?.response?.data?.message || "Failed to like/dislike");
+      const axiosError = error as AxiosError<{ message?: string }>;
+      toast.error(axiosError?.response?.data?.message || "Failed to like/dislike");
     }
   };
 
@@ -111,9 +108,10 @@ const Feed = () => {
       } else {
         toast.error("Something went wrong!");
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error saving/unsaving post:", error);
-      toast.error(error?.response?.data?.message || "Failed to save/unsave post");
+      const axiosError = error as AxiosError<{ message?: string }>;
+      toast.error(axiosError?.response?.data?.message || "Failed to save/unsave post");
     }
   };
 
@@ -141,14 +139,11 @@ const Feed = () => {
       } else {
         toast.error("Something went wrong!");
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error adding comment:", error);
-      toast.error(error?.response?.data?.message || "Failed to add comment");
+      const axiosError = error as AxiosError<{ message?: string }>;
+      toast.error(axiosError?.response?.data?.message || "Failed to add comment");
     }
-  };
-
-  const openComments = (post: PostType) => {
-    setSelectedPost(post);
   };
 
   // Helper function to check if a post is saved.
@@ -163,46 +158,6 @@ const Feed = () => {
     });
   };
 
-  const handleFollow = async (userId: string, username: string) => {
-    try {
-      const result = await axios.post(
-        `${BASE_API_URL}/users/follow-unfollow/${userId}`,
-        {
-          notificationData: {
-            id: Date.now().toString(),
-            type: "follow",
-            user: {
-              username: user?.username || "",
-              profilePicture: user?.profilePicture || "",
-              _id: user?._id || ""
-            },
-            message: `${user?.username} started following you`,
-            createdAt: new Date().toISOString(),
-            read: false,
-            targetUserId: user?._id
-          }
-        },
-        { withCredentials: true }
-      );
-
-      if (result.data.status === "success") {
-        dispatch(setAuthUser(result.data.data.user));
-        toast.success(result.data.message);
-      }
-    } catch (error: any) {
-      console.error("Follow error:", error);
-      toast.error(error?.response?.data?.message || "Failed to follow user");
-    }
-  };
-
-  const isFollowing = (userId: string): boolean => {
-    if (!user || !user.following) return false;
-    return user.following.includes(userId);
-  };
-
-  const handleNotificationToggle = () => {
-    dispatch(toggleNotifications());
-  };
 
   const isPostLiked = (post: PostType): boolean => {
     return post.likes.includes(user?._id || '');
@@ -276,7 +231,7 @@ const Feed = () => {
               <div className="flex items-center space-x-4">
                 <div className="flex items-center space-x-2">
                   <button
-                    onClick={() => handleLikeDislike(post._id, post.user)}
+                    onClick={() => handleLikeDislike(post._id)}
                     className="focus:outline-none"
                   >
                 <HeartIcon

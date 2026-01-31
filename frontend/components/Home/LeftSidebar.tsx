@@ -1,7 +1,6 @@
 "use client";
 
 import {
-  Heart,
   HomeIcon,
   LogOut,
   MessageCircle,
@@ -10,7 +9,7 @@ import {
   Bell,
   ArrowLeft,
 } from "lucide-react";
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
 import { useDispatch, useSelector } from "react-redux";
 import { RootState } from "@/store/store";
@@ -25,8 +24,8 @@ import { toggleNotifications, markNotificationAsRead, fetchNotifications } from 
 import { formatTimestamp } from "@/utils/formatTime";
 import { AppDispatch } from "@/store/store";
 import { Dialog } from "../ui/dialog";
-import Link from "next/link";
 import SearchComponent from "../Helper/Search";
+import type { AxiosError } from "axios";
 
 type Notification = {
   _id: string;
@@ -39,38 +38,6 @@ type Notification = {
   postId?: string;
   read: boolean;
   createdAt: string;
-};
-
-const formatNotificationTime = (createdAt: string) => {
-  const now = new Date();
-  const notificationDate = new Date(createdAt);
-  
-  // Check if it's the same day
-  if (
-    now.getDate() === notificationDate.getDate() &&
-    now.getMonth() === notificationDate.getMonth() &&
-    now.getFullYear() === notificationDate.getFullYear()
-  ) {
-    // For same day, show time
-    return notificationDate.toLocaleTimeString('en-US', {
-      hour: 'numeric',
-      minute: 'numeric',
-      hour12: true
-    });
-  }
-
-  // For different day but within a week, show day name
-  const diffInDays = Math.floor((now.getTime() - notificationDate.getTime()) / (1000 * 60 * 60 * 24));
-  if (diffInDays < 7) {
-    return notificationDate.toLocaleDateString('en-US', { weekday: 'long' });
-  }
-
-  // For older notifications, show full date
-  return notificationDate.toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric'
-  });
 };
 
 const LeftSidebar = () => {
@@ -130,7 +97,9 @@ const LeftSidebar = () => {
     }
   }, [error]);
 
-  const handleSidebar = async (label: "Home" | "Search" | "Messages" | "Notifications" | "Create" | "Profile" | "Logout") => {
+  type SidebarLabel = "Home" | "Search" | "Messages" | "Notifications" | "Create" | "Profile" | "Logout";
+
+  const handleSidebar = async (label: SidebarLabel) => {
     if (label === "Logout") {
       handleLogout();
       return;
@@ -190,9 +159,10 @@ const LeftSidebar = () => {
       } else {
         throw new Error(response.data.message || "Failed to logout");
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Logout error:", error);
-      toast.error(error?.response?.data?.message || "Failed to logout. Please try again.");
+      const axiosError = error as AxiosError<{ message?: string }>;
+      toast.error(axiosError?.response?.data?.message || "Failed to logout. Please try again.");
     } finally {
       setIsLoggingOut(false);
     }
@@ -241,14 +211,17 @@ const LeftSidebar = () => {
     {
       icon: <HomeIcon className={`w-5 h-5 ${isNavigating ? 'animate-pulse' : ''}`} />,
       label: "Home",
+      action: "Home",
     },
     {
       icon: <Search className="w-5 h-5" />,
       label: "Search",
+      action: "Search",
     },
     {
       icon: <MessageCircle className="w-5 h-5" />,
       label: "Messages",
+      action: "Messages",
     },
     {
       icon: (
@@ -262,10 +235,12 @@ const LeftSidebar = () => {
         </div>
       ),
       label: "Notifications",
+      action: "Notifications",
     },
     {
       icon: <SquarePlus className="w-5 h-5" />,
       label: "Create",
+      action: "Create",
     },
     {
       icon: (
@@ -283,12 +258,14 @@ const LeftSidebar = () => {
         </div>
       ),
       label: "Profile",
+      action: "Profile",
     },
     {
       icon: <LogOut className={`w-5 h-5 ${isLoggingOut ? 'animate-spin' : ''}`} />,
       label: isLoggingOut ? "Logging out..." : "Logout",
+      action: "Logout",
     },
-  ];
+  ] satisfies Array<{ icon: React.ReactNode; label: string; action: SidebarLabel }>;
 
   return (
     <>
@@ -311,12 +288,12 @@ const LeftSidebar = () => {
                 <div className="mt-6">
                   {SidebarLinks.map((link) => (
                     <div
-                      key={link.label}
+                      key={link.action}
                       className={`flex items-center mb-2 p-2 rounded-lg group cursor-pointer 
                       transition-all duration-200 hover:bg-gray-100 space-x-2 ${
                         link.label === "Home" && pathname === "/" ? "bg-gray-100" : ""
                       }`}
-                      onClick={() => handleSidebar(link.label as any)}
+                      onClick={() => handleSidebar(link.action)}
                     >
                       <div className="group-hover:scale-110 transition-all duration-200">
                         {link.icon}

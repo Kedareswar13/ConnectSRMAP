@@ -1,6 +1,6 @@
 "use client";
 
-import React, { FormEvent, useRef, useState } from "react";
+import React, { useRef, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { RootState } from "@/store/store";
 import LeftSidebar from "@/components/Home/LeftSidebar";
@@ -23,6 +23,7 @@ import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import type { AxiosError } from "axios";
 
 const EditProfile = () => {
   const router = useRouter();
@@ -119,9 +120,10 @@ const EditProfile = () => {
       } else {
         toast.error("Failed to delete account");
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error deleting account:", error);
-      toast.error(error?.response?.data?.message || "Failed to delete account");
+      const axiosError = error as AxiosError<{ message?: string }>;
+      toast.error(axiosError?.response?.data?.message || "Failed to delete account");
     } finally {
       setIsDeleting(false);
       setShowDeleteDialog(false);
