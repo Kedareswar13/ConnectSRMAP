@@ -3,7 +3,7 @@
 import { User, Post as PostType } from '../../types';
 import React, { useState } from 'react';
 import Image from 'next/image';
-import { HeartIcon, MessageCircle, Send, Bookmark } from "lucide-react";
+import { HeartIcon, MessageCircle, Send } from "lucide-react";
 import { useSelector, useDispatch } from 'react-redux';
 import { RootState } from '../../store/store';
 import { toast } from "sonner";
@@ -12,8 +12,7 @@ import { BASE_API_URL } from "../../server";
 import { setAuthUser } from "../../store/authSlice";
 import { likeOrDislike, addComment, deletePost } from "../../store/postSlice";
 import PostDialog from './PostDialog';
-import { Avatar, AvatarImage, AvatarFallback } from "../ui/avatar";
-import DotButton from "../Helper/DotButton";
+import type { AxiosError } from "axios";
 
 type Props = {
   userProfile: User | undefined;
@@ -27,7 +26,7 @@ const Posts = ({ userProfile }: Props) => {
   const [animateHeart, setAnimateHeart] = useState(false);
   const [animateBookmark, setAnimateBookmark] = useState(false);
 
-  const handleLikeDislike = async (id: string, postUser: User) => {
+  const handleLikeDislike = async (id: string) => {
     if (!user || !user._id) {
       toast.error("Please login to like posts");
       return;
@@ -60,9 +59,10 @@ const Posts = ({ userProfile }: Props) => {
         dispatch(likeOrDislike({ postId: id, userId: user._id }));
         toast.success(result.data.message);
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error liking/disliking post:", error);
-      toast.error(error?.response?.data?.message || "Failed to like post");
+      const axiosError = error as AxiosError<{ message?: string }>;
+      toast.error(axiosError?.response?.data?.message || "Failed to like post");
     }
   };
 
@@ -86,9 +86,10 @@ const Posts = ({ userProfile }: Props) => {
         dispatch(setAuthUser(result.data.data.user));
         toast.success(result.data.message);
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error saving/unsaving post:", error);
-      toast.error(error?.response?.data?.message || "Failed to save post");
+      const axiosError = error as AxiosError<{ message?: string }>;
+      toast.error(axiosError?.response?.data?.message || "Failed to save post");
     }
   };
 
@@ -114,9 +115,10 @@ const Posts = ({ userProfile }: Props) => {
         dispatch(addComment({ postId, comment: result.data.data.comment }));
         toast.success("Comment added successfully");
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error adding comment:", error);
-      toast.error(error?.response?.data?.message || "Failed to add comment");
+      const axiosError = error as AxiosError<{ message?: string }>;
+      toast.error(axiosError?.response?.data?.message || "Failed to add comment");
     }
   };
 
@@ -134,9 +136,10 @@ const Posts = ({ userProfile }: Props) => {
           userProfile.posts = userProfile.posts.filter(post => post._id !== postId);
         }
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error deleting post:", error);
-      toast.error(error?.response?.data?.message || "Failed to delete post");
+      const axiosError = error as AxiosError<{ message?: string }>;
+      toast.error(axiosError?.response?.data?.message || "Failed to delete post");
     }
   };
 

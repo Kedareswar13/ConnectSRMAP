@@ -20,6 +20,7 @@ import Saved from "./Saved";
 import { setAuthUser, signOut } from "../../store/authSlice";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "../ui/dialog";
+import type { AxiosError } from "axios";
 
 type Props = {
   id: string;
@@ -83,9 +84,10 @@ const Profile = ({ id }: Props) => {
         setIsFollowing(prev => !prev);
         setFollowerCount(prev => (isFollowing ? prev - 1 : prev + 1));
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error following/unfollowing:", error);
-      toast.error(error?.response?.data?.message || "Failed to follow/unfollow");
+      const axiosError = error as AxiosError<{ message?: string }>;
+      toast.error(axiosError?.response?.data?.message || "Failed to follow/unfollow");
     }
   };
 
@@ -104,9 +106,10 @@ const Profile = ({ id }: Props) => {
         toast.success("Account deleted successfully");
         router.replace("/auth/login");
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error deleting account:", error);
-      toast.error(error?.response?.data?.message || "Failed to delete account");
+      const axiosError = error as AxiosError<{ message?: string }>;
+      toast.error(axiosError?.response?.data?.message || "Failed to delete account");
     } finally {
       setIsDeleting(false);
       setShowDeleteDialog(false);

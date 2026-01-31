@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useMemo } from "react";
-import { Post, User, Comment } from "@/types";
+import { Post, User } from "@/types";
 import { Avatar, AvatarImage, AvatarFallback } from "../ui/avatar";
 import { useDispatch } from "react-redux";
 import { deleteComment } from "@/store/postSlice";
@@ -10,6 +10,7 @@ import axios from "axios";
 import { BASE_API_URL } from "@/server";
 import { Trash2 } from "lucide-react";
 import { formatTimestamp } from "@/utils/formatTime";
+import type { AxiosError } from "axios";
 
 type Props = {
   user: User | null;
@@ -41,9 +42,10 @@ const Comments = ({ post, user }: Props) => {
       } else {
         toast.error("Failed to delete comment");
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error deleting comment:", error);
-      toast.error(error?.response?.data?.message || "Failed to delete comment");
+      const axiosError = error as AxiosError<{ message?: string }>;
+      toast.error(axiosError?.response?.data?.message || "Failed to delete comment");
     }
   };
 

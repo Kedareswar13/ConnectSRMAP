@@ -1,9 +1,9 @@
 "use client";
 
 import { Post as PostType, User } from "@/types";
-import React, { useEffect, useCallback, useState } from "react";
+import React, { useEffect, useCallback } from "react";
 import { Dialog, DialogContent, DialogTitle } from "../ui/dialog";
-import { X, HeartIcon, MessageCircle, Send, Bookmark, MoreHorizontal } from "lucide-react";
+import { HeartIcon, MessageCircle, Send, Bookmark, MoreHorizontal } from "lucide-react";
 import Image from "next/image";
 import { Avatar, AvatarImage, AvatarFallback } from "../ui/avatar";
 import { Button } from "../ui/button";
@@ -37,7 +37,6 @@ const PostDialog = ({
   post,
   isOpen,
   onClose,
-  userProfile,
   currentUser,
   onLike,
   onSave,
@@ -50,7 +49,6 @@ const PostDialog = ({
 }: PostDialogProps) => {
   const [comment, setComment] = React.useState("");
   const posts = useSelector((state: RootState) => state.posts.posts);
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   // Get the latest version of the post from Redux state
   const currentPost = React.useMemo(() => {

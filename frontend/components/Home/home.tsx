@@ -11,7 +11,7 @@ import axios from "axios";
 import { BASE_API_URL } from "@/server";
 import { handleAuthRequest } from "../utils/apiRequest";
 import { setAuthUser } from "../../store/authSlice";
-import { redirect, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 
 const Home = () => {
   const dispatch = useDispatch();

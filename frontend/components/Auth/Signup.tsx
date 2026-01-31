@@ -9,7 +9,7 @@ import { BASE_API_URL } from "@/server";
 import axios from "axios";
 import { handleAuthRequest } from "../utils/apiRequest";
 import { toast } from "sonner";
-import { useDispatch, useSelector } from "react-redux";
+import { useDispatch } from "react-redux";
 import { setAuthUser } from "@/store/authSlice";
 import { useRouter } from "next/navigation";
 interface FormData {

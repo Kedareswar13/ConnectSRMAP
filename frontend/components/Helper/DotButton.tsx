@@ -18,6 +18,7 @@ import { toast } from "sonner";
 import axios from "axios";
 import { BASE_API_URL } from "@/server";
 import { deletePost } from "@/store/postSlice";
+import type { AxiosError } from "axios";
 
 type Props = {
   post: Post | null;
@@ -52,9 +53,10 @@ const DotButton = ({ post, user }: Props) => {
       } else {
         toast.error("Something went wrong!");
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error following/unfollowing:", error);
-      toast.error(error?.response?.data?.message || "Failed to follow/unfollow");
+      const axiosError = error as AxiosError<{ message?: string }>;
+      toast.error(axiosError?.response?.data?.message || "Failed to follow/unfollow");
     }
   };
 
@@ -73,9 +75,10 @@ const DotButton = ({ post, user }: Props) => {
       } else {
         toast.error("Failed to delete post");
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error deleting post:", error);
-      toast.error(error?.response?.data?.message || "Failed to delete post");
+      const axiosError = error as AxiosError<{ message?: string }>;
+      toast.error(axiosError?.response?.data?.message || "Failed to delete post");
     }
   };
 
