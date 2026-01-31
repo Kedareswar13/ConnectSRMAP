@@ -1,6 +1,6 @@
 "use client";
 
-import { User, Post as PostType } from '../../types';
+import { Post as PostType } from '../../types';
 import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { HeartIcon, MessageCircle, Loader2 } from "lucide-react";
@@ -14,17 +14,12 @@ import { likeOrDislike, addComment } from "../../store/postSlice";
 import PostDialog from './PostDialog';
 import type { AxiosError } from "axios";
 
-type Props = {
-  userProfile: User | undefined;
-}
-
-const SavedPosts = ({ userProfile }: Props) => {
+const SavedPosts = () => {
   const dispatch = useDispatch();
   const [selectedPost, setSelectedPost] = useState<PostType | null>(null);
   const [showDialog, setShowDialog] = useState(false);
   const user = useSelector((state: RootState) => state.auth.user);
   const posts = useSelector((state: RootState) => state.posts.posts);
-  const [animateHeart, setAnimateHeart] = useState(false);
   const [savedPosts, setSavedPosts] = useState<PostType[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -57,9 +52,6 @@ const SavedPosts = ({ userProfile }: Props) => {
       toast.error("Please login to like posts");
       return;
     }
-
-    setAnimateHeart(true);
-    setTimeout(() => setAnimateHeart(false), 500);
 
     try {
       const result = await axios.post(

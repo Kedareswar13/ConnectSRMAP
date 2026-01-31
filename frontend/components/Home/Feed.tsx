@@ -12,7 +12,7 @@ import DotButton from "../Helper/DotButton";
 import Image from "next/image";
 import { toast } from "sonner";
 import { setAuthUser } from "@/store/authSlice";
-import { Post as PostType, User } from "@/types";
+import { Post as PostType } from "@/types";
 import PostDialog from "../Profile/PostDialog";
 import type { AxiosError } from "axios";
 
