@@ -43,8 +43,8 @@ app.get("/api/health", (req, res) => {
     res.status(200).json({ status: "ok" });
 });
 
-app.use("/api/v1/users", userRouter); 
-app.use("/api/v1/posts", postRouter); 
+app.use("/api/users", userRouter); 
+app.use("/api/posts", postRouter); 
 
 app.all("*", (req, res, next) => {
     next(new AppError(`Can't find ${req.originalUrl} on this server!`, 404));
