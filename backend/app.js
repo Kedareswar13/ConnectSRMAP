@@ -7,6 +7,16 @@ const mongoSanitize = require("express-mongo-sanitize");
 
 const app = express();
 
+app.use(cors({
+    origin: process.env.CORS_ORIGIN,
+    credentials: true,
+  }));
+  
+  app.options("*", cors({
+    origin: process.env.CORS_ORIGIN,
+    credentials: true,
+  }));
+    
 app.set("trust proxy", 1);
 
 const path = require("path");
@@ -21,25 +31,6 @@ app.use(cookieParser());
 
 app.use(helmet());
 
-const allowedOrigins = [
-    process.env.CORS_ORIGIN
-  ];
-  
-  app.use(cors({
-    origin: function (origin, callback) {
-      if (!origin) return callback(null, true); // allow server requests
-      if (allowedOrigins.includes(origin)) {
-        callback(null, true);
-      } else {
-        callback(new Error("Not allowed by CORS"));
-      }
-    },
-    credentials: true,
-  }));
-  
-  // 🔥 VERY IMPORTANT — this fixes your issue
-  app.options("*", cors());
-  
 
 app.use(express.static(path.join(__dirname,"public")));
 if(process.env.NODE_ENV === "development")
