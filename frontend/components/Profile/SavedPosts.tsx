@@ -188,7 +188,7 @@ const SavedPosts = () => {
           {post.media?.type === 'image' ? (
             <Image
               src={post.media.url}
-              alt={`Post by ${post.user.username}`}
+              alt={`Post by ${post.user?.username || 'user'}`}
               fill
               className="object-cover"
               sizes="(max-width: 768px) 33vw, 300px"

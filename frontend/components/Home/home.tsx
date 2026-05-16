@@ -4,7 +4,7 @@ import LeftSidebar from "./LeftSidebar";
 import Feed from "./Feed";
 import RightSidebar from "./RightSidebar";
 import { Sheet, SheetContent, SheetDescription, SheetTitle, SheetTrigger } from "../ui/sheet";
-import { Loader, MenuIcon } from "lucide-react";
+import { MenuIcon } from "lucide-react";
 import { useDispatch, useSelector } from "react-redux";
 import { RootState } from "@/store/store";
 import axios from "axios";
@@ -25,9 +25,7 @@ const Home = () => {
         const getAuthUserReq = async () => {
           return await axios.get(`${BASE_API_URL}/users/me`, { withCredentials: true });
         };
-    
         const result = await handleAuthRequest(getAuthUserReq, setIsLoading);
-    
         if (result?.data?.data?.user) {
           dispatch(setAuthUser(result.data.data.user));
         } else {
@@ -40,8 +38,7 @@ const Home = () => {
         setIsLoading(false);
       }
     };
-  
-    if (!user) {
+    if (!user || !user._id) {
       getAuthUser();
     } else {
       setIsLoading(false);
@@ -51,35 +48,49 @@ const Home = () => {
   if (isLoading) {
     return (
       <div className="w-full h-screen flex items-center justify-center flex-col">
-        <Loader className="animate-spin" />
+        <div className="w-14 h-14 rounded-full border-4 border-white/10 border-t-indigo-500 animate-spin" />
+        <p className="mt-4 text-sm text-white/30 animate-pulse font-medium">Loading ConnectSRMAP...</p>
       </div>
     );
   }
 
   return (
-  <div className="flex relative">
-    <div className="w-[20%] hidden md:block h-screen fixed z-10">
-      <LeftSidebar/>
-    </div>
-    <div className="flex-1 md:ml-[20%] overflow-y-auto relative z-0">
-      <div className="md:hidden">
-        <Sheet>
-          <SheetTrigger>
-            <MenuIcon/>
-          </SheetTrigger>
-          <SheetContent>
-            <SheetTitle></SheetTitle>
-            <SheetDescription></SheetDescription>
-            <LeftSidebar/>
-          </SheetContent>
-        </Sheet>
+    <div className="flex min-h-screen">
+      {/* Desktop Sidebar */}
+      <div className="w-64 hidden md:block h-screen fixed z-10">
+        <LeftSidebar/>
       </div>
-      <Feed/>
+
+      {/* Main Content */}
+      <div className="flex-1 md:ml-64 relative z-0">
+        {/* Mobile Menu */}
+        <div className="md:hidden sticky top-0 z-20 border-b border-white/5 px-4 py-3" style={{ background: 'hsl(230,25%,10%)' }}>
+          <div className="flex items-center justify-between">
+            <h1 className="text-lg font-bold gradient-text">ConnectSRMAP</h1>
+            <Sheet>
+              <SheetTrigger>
+                <MenuIcon className="w-6 h-6 text-white/60"/>
+              </SheetTrigger>
+              <SheetContent side="left" className="w-64 p-0 border-none">
+                <SheetTitle className="sr-only">Navigation</SheetTitle>
+                <SheetDescription className="sr-only">App navigation</SheetDescription>
+                <LeftSidebar/>
+              </SheetContent>
+            </Sheet>
+          </div>
+        </div>
+
+        {/* Feed + Right Sidebar */}
+        <div className="flex">
+          <div className="flex-1 min-w-0">
+            <Feed/>
+          </div>
+          <div className="w-80 pt-6 px-5 lg:block hidden flex-shrink-0 border-l border-white/5">
+            <RightSidebar/>
+          </div>
+        </div>
+      </div>
     </div>
-    <div className="w-[30%] pt-8 px-6 lg:block hidden relative z-0">
-      <RightSidebar/>
-    </div>
-  </div>
   )
 };
 

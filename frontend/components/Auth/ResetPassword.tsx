@@ -14,82 +14,56 @@ import { setAuthUser } from "@/store/authSlice";
 import { toast } from "sonner";
 
 const PasswordReset = () => {
-    const searchParams = useSearchParams();
-    const email = searchParams.get("email");
-    const [otp,setOtp] = useState("");
-    const [password,setPassword] = useState("");
-    const [passwordConfirm,setPasswordConfirm] = useState("");
-    const [isLoading,setIsLoading] = useState(false);
-    const dispatch = useDispatch();
-    const router = useRouter();
-    
-    const handleSubmit = async () => {
-        if (!otp || !password || !passwordConfirm) {
-            toast.error("All fields are required.");
-            return;
-        }
-    
-        if (password.trim() !== passwordConfirm.trim()) {
-            toast.error("Passwords do not match!");
-            return;
-        }
-    
-        const data = { email, otp, password: password.trim(), passwordConfirm: passwordConfirm.trim() };
-    
-        const resetPassReq = async () =>
-            await axios.post(`${BASE_API_URL}/users/reset-password`, data, { withCredentials: true });
-    
-        const result = await handleAuthRequest(resetPassReq, setIsLoading);
-    
-        if (result) {
-            dispatch(setAuthUser(result.data.data.user));
-            toast.success(result.data.message);
-            router.push("/auth/login");
-        }
-    };    
+  const searchParams = useSearchParams();
+  const email = searchParams.get("email");
+  const [otp, setOtp] = useState("");
+  const [password, setPassword] = useState("");
+  const [passwordConfirm, setPasswordConfirm] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const dispatch = useDispatch();
+  const router = useRouter();
 
-    return (
-        <div className="h-screen flex items-center justify-center flex-col">
-            <h1 className="text-2xl sm:text-3xl font-bold mb-3">
-                Reset your password
-            </h1>
-            <p className="mb-6 text-sm sm:text-base text-center text-gray-600 font-medium">
-                Enter your OTP and new password to reset your password
-            </p>
+  const handleSubmit = async () => {
+    if (!otp || !password || !passwordConfirm) { toast.error("All fields are required."); return; }
+    if (password.trim() !== passwordConfirm.trim()) { toast.error("Passwords do not match!"); return; }
+    const data = { email, otp, password: password.trim(), passwordConfirm: passwordConfirm.trim() };
+    const resetPassReq = async () => await axios.post(`${BASE_API_URL}/users/reset-password`, data, { withCredentials: true });
+    const result = await handleAuthRequest(resetPassReq, setIsLoading);
+    if (result) { dispatch(setAuthUser(result.data.data.user)); toast.success(result.data.message); router.push("/auth/login"); }
+  };
+
+  return (
+    <div className="h-screen flex items-center justify-center flex-col px-4" style={{ background: 'hsl(230,25%,10%)' }}>
+      <div className="w-full max-w-md">
+        <h1 className="text-2xl font-bold text-white mb-2">Reset your password</h1>
+        <p className="mb-8 text-sm text-white/40">Enter your OTP and new password</p>
+
+        <div className="space-y-4">
+          <div>
+            <label className="text-xs font-semibold text-white/40 uppercase tracking-wider mb-2 block">OTP Code</label>
             <input
-                type="number"
-                placeholder="Enter OTP"
-                className="block w-[90%] sm:w-[80%] md:w-[60%] lg:w-[40%] xl:w-[30%] 
-                mx-auto px-6 py-3 bg-gray-300 rounded-lg outline-none no-spinner"
-                value={otp}
-                onChange={(e)=>setOtp(e.target.value)}
+              type="number"
+              placeholder="Enter OTP"
+              className="input-dark w-full px-4 py-3 no-spinner"
+              value={otp}
+              onChange={(e) => setOtp(e.target.value)}
             />
-            <div className="mb-4 mt-4 w-[90%] sm:w-[80%] md:w-[60%] lg:w-[40%] xl:w-[30%]">
-                <PasswordInput
-                    name="password"
-                    placeholder="Enter new password"
-                    inputClassName="px-6 py-3 bg-gray-300 rounded-lg outline-none w-full"
-                    value={password}
-                    onChange={(e)=>setPassword(e.target.value)}
-                />
-            </div>
-            <div className="mb-4 mt-4 w-[90%] sm:w-[80%] md:w-[60%] lg:w-[40%] xl:w-[30%]">
-                <PasswordInput
-                    name="passwordconfirm"
-                    placeholder="Confirm new password"
-                    inputClassName="px-6 py-3 bg-gray-300 rounded-lg outline-none w-full"
-                    value={passwordConfirm}
-                    onChange={(e)=>setPasswordConfirm(e.target.value)}
-                />
-            </div>
-            <div className="flex items-center space-x-4 mt-6">
-                <LoadingButton onClick={handleSubmit}isLoading={isLoading}>Change Password</LoadingButton>
-                <Button variant={"ghost"}>
-                    <Link href="/auth/forget-password">Go Back</Link>
-                </Button>
-            </div>
+          </div>
+          <PasswordInput name="password" label="New Password" placeholder="Enter new password" value={password} onChange={(e) => setPassword(e.target.value)} />
+          <PasswordInput name="passwordconfirm" label="Confirm Password" placeholder="Confirm new password" value={passwordConfirm} onChange={(e) => setPasswordConfirm(e.target.value)} />
         </div>
-    );
+
+        <div className="flex items-center gap-4 mt-6">
+          <LoadingButton onClick={handleSubmit} isLoading={isLoading} className="btn-gradient !rounded-xl flex-1">
+            Change Password
+          </LoadingButton>
+          <Button variant="ghost" className="text-white/40 hover:text-white/60">
+            <Link href="/auth/forget-password">Go Back</Link>
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
 };
 
 export default PasswordReset;

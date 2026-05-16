@@ -14,8 +14,8 @@ const authSlice = createSlice({
   initialState,  
   reducers: {
     setAuthUser(state, action: PayloadAction<User | null>) {
-      if (action.payload) {
-        // Ensure required fields are present
+      if (action.payload && action.payload._id) {
+        // Ensure required fields are present and _id is valid
         const { username, profilePicture, bio } = action.payload;
         state.user = {
           ...action.payload,

@@ -44,86 +44,101 @@ const Login = () => {
       dispatch(setAuthUser(result.data.data.user));
       toast.success(result.data.message);
       router.push("/");
-      //TODO's
-      //1.Redirect to Home Page
-      //2.Add our user to Redux store(to store the user details when we reload the
-      //page for that we will be using the Redux-Persist)
     }
   };
 
   return (
     <div className="w-full h-screen overflow-hidden">
-      <div className="grid grid-cols-1 lg:grid-cols-7 gap-8">
-        {/* Banner */}
-        <div className="lg:col-span-4 h-screen hidden lg:block">
+      <div className="grid grid-cols-1 lg:grid-cols-2 h-screen">
+        {/* Banner - fill completely */}
+        <div className="h-screen hidden lg:block relative overflow-hidden">
           <Image
             src="/images/sinup-banner.jpg"
             alt="signup"
-            width={1000}
-            height={1000}
-            className="w-full h-full object-cover scale-110"
+            fill
+            priority
+            className="object-cover object-center"
           />
+          {/* Dark overlay */}
+          <div className="absolute inset-0 bg-gradient-to-t from-[hsl(230,25%,8%)] via-[hsl(230,25%,8%)]/40 to-transparent" />
+          <div className="absolute bottom-16 left-10 right-10 z-10">
+            <h2 className="text-3xl font-bold text-white/90 drop-shadow-lg">
+              Welcome back to
+            </h2>
+            <h1 className="text-5xl font-extrabold mt-2 drop-shadow-lg">
+              <span className="gradient-text">ConnectSRMAP</span>
+            </h1>
+            <p className="text-white/50 mt-4 text-base max-w-sm leading-relaxed">
+              Connect with your campus community. Share moments, build connections.
+            </p>
+          </div>
         </div>
 
-        <div className="lg:col-span-3 flex flex-col items-center justify-center h-screen">
-          <h1 className="font-bold text-xl sm:text-2xl text-left uppercase mb-8">
-            Login with <span className="text-green-600">ConnectSRMAP</span>
-          </h1>
+        {/* Login Form - dark background matching sidebar */}
+        <div className="flex flex-col items-center justify-center h-screen px-8" 
+             style={{ background: 'hsl(230, 25%, 10%)' }}>
+          <div className="w-full max-w-md">
+            {/* Mobile logo */}
+            <div className="lg:hidden mb-8 text-center">
+              <h1 className="text-3xl font-extrabold gradient-text">ConnectSRMAP</h1>
+            </div>
 
-          <form
-            onSubmit={handleSubmit}
-            className="block w-[90%] sm:w-[80%] md:w-[60%] lg:w-[90%] xl:w-[80%]"
-          >
-            {/* Email Field */}
-            <div className="mb-4">
-              <label htmlFor="email" className="font-semibold mb-2 block">
-                Email Address
-              </label>
-              <input
-                type="email"
-                name="email"
-                id="email"
-                placeholder="Email Address"
-                className="px-4 py-3 bg-gray-200 rounded-lg w-full block outline-none"
-                value={formData.email}
-                onChange={handleChange}
-              />
+            <div className="mb-10">
+              <h1 className="text-3xl font-bold text-white">
+                Sign in
+              </h1>
+              <p className="text-white/40 mt-2 text-sm">Enter your credentials to access your account</p>
             </div>
-            {/* Password */}
-            <div className="mb-4">
-              <PasswordInput
-                label="Password"
-                name="password"
-                placeholder="Enter Password"
-                value={formData.password}
-                onChange={handleChange}
-              />
-              <Link
-                href="/auth/forget-password"
-                className="mt-3 text-red-600 block 
-              font-semibold text-base cursor-pointer text-right"
+
+            <form onSubmit={handleSubmit} className="space-y-5">
+              <div>
+                <label htmlFor="email" className="block text-xs font-semibold text-white/60 mb-2 uppercase tracking-wider">
+                  Email Address
+                </label>
+                <input
+                  type="email"
+                  name="email"
+                  id="email"
+                  placeholder="you@example.com"
+                  className="input-auth px-4 py-3 w-full"
+                  value={formData.email}
+                  onChange={handleChange}
+                />
+              </div>
+              <div>
+                <PasswordInput
+                  label="Password"
+                  name="password"
+                  placeholder="Enter your password"
+                  value={formData.password}
+                  onChange={handleChange}
+                />
+                <Link
+                  href="/auth/forget-password"
+                  className="mt-2 text-xs text-indigo-400 block font-medium cursor-pointer text-right hover:text-indigo-300 transition-colors"
+                >
+                  Forgot Password?
+                </Link>
+              </div>
+              <LoadingButton
+                size={"lg"}
+                className="w-full btn-gradient !rounded-xl !py-3 text-base"
+                type="submit"
+                isLoading={isLoading}
               >
-                Forget Password?
-              </Link>
+                Sign In
+              </LoadingButton>
+            </form>
+
+            <div className="mt-8 text-center">
+              <p className="text-sm text-white/40">
+                Don&apos;t have an account?{" "}
+                <Link href="/auth/signup" className="text-indigo-400 font-semibold hover:text-indigo-300 transition-colors">
+                  Create Account
+                </Link>
+              </p>
             </div>
-            {/* Submit Button */}
-            <LoadingButton
-              size={"lg"}
-              className="w-full mt-3"
-              type="submit"
-              isLoading={isLoading}
-            >
-              Login Now
-            </LoadingButton>
-          </form>
-          <h1 className="mt-4 text-lg text-gray-800">
-            Don&apos;t have an account ?{" "}
-            <Link href="/auth/signup">
-              <span className="text-blue-800 underline cursor-pointer font-medium">
-                Sign Up Here
-              </span>{" "}
-            </Link>
-          </h1>
+          </div>
         </div>
       </div>
     </div>

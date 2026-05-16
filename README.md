@@ -1,251 +1,586 @@
-# ConnectSRMAP — One-Page Interview Readme
+# 🌐 ConnectSRMAP
 
-## What, Why, How (in simple terms)
-- **What**: ConnectSRMAP is a student-only social app for SRMAP. Students can sign up, verify, log in, follow others, post images/videos, like/comment, save posts, edit profiles, get notifications, and search users.
-- **Why**: To give SRMAP students a safe, verified space to connect, discover peers, and share updates with features they expect from a modern social platform.
-- **How**: A Next.js frontend talks to an Express + MongoDB backend using cookie-based auth. Media is uploaded via Multer and stored in Cloudinary. The UI uses Tailwind + Radix. Emails are sent through Nodemailer for OTP verification and password reset.
-
-## High-Level Architecture
-- Frontend (`frontend/`): Next.js 15 App Router + React 19 + TypeScript
-- Backend (`backend/`): Express + Mongoose (MongoDB)
-- Media: Cloudinary (via `cloudinary` SDK)
-- Email: Nodemailer + templates (`backend/emailTemplate/`)
-- Auth: JWT in httpOnly cookies; verified via `GET /api/v1/users/me`
-
-```mermaid
-flowchart LR
-  A[User Browser] -- Axios (withCredentials) --> B[Next.js Frontend (frontend/)]
-  B -- HTTP (Cookies) --> C[Express API (backend/app.js)]
-  C --> D[(MongoDB via Mongoose)]
-  C --> E[Cloudinary (media)]
-  C --> F[Nodemailer (email OTP)]
-```
-
-## Key Flows (diagrammed)
-
-- Login (client-gated landing in `frontend/components/Home/home.tsx`)
-```mermaid
-sequenceDiagram
-  participant U as User
-  participant FE as Frontend (Next.js)
-  participant BE as Backend (Express)
-  U->>FE: Visit /
-  FE->>BE: GET /api/v1/users/me (withCredentials)
-  alt Authenticated
-    BE-->>FE: 200 { user }
-    FE->>FE: setAuthUser(...) Redux
-    FE-->>U: Render Home (Feed + Sidebars)
-  else Not authenticated
-    BE-->>FE: 401/Redirect
-    FE-->>U: Redirect to /auth/login
-  end
-```
-
-- Create Post (with media)
-```mermaid
-sequenceDiagram
-  participant U as User
-  participant FE as Frontend
-  participant BE as Backend
-  participant CL as Cloudinary
-  U->>FE: Submit caption + file
-  FE->>BE: POST /api/v1/posts/create-post (multipart, cookie)
-  BE->>CL: Upload file
-  CL-->>BE: url + publicId + type
-  BE->>BE: Create Post{caption, media, user}
-  BE-->>FE: 201 { post }
-  FE-->>U: Update feed
-```
-
-## Backend API (mounted in `backend/app.js`)
-- Base paths: `/api/v1/users`, `/api/v1/posts`
-- Users (`backend/routes/userRoutes.js`)
-  - POST `/signup`, `/login`, `/logout`, `/forget-password`, `/reset-password`
-  - POST `/verify` (auth), `/resend-otp` (auth), `/change-password` (auth)
-  - GET `/profile/:id`, `/me` (auth), `/suggested-user` (auth), `/notifications` (auth), `/search` (auth)
-  - POST `/notifications/:notificationId/read` (auth), `/edit-profile` (auth, `multer.single("profilePicture")`)
-- Posts (`backend/routes/postRoutes.js`)
-  - POST `/create-post` (auth, `multer.single("media")`), `/save-unsave-post/:id` (auth), `/like-dislike/:id` (auth), `/comment/:id` (auth)
-  - GET `/all`, `/user-post/:id`
-  - DELETE `/delete-post/:id` (auth)
-
-## Data Models (Mongoose)
-- `User` (`backend/models/userModel.js`)
-  - username, email, password (hashed), profilePicture, bio
-  - followers[], following[], posts[], savedPosts[] (ObjectId refs)
-  - isVerified, otp(+expires), resetPasswordOTP(+expires)
-  - pre-save hash; `correctPassword` method
-- `Post` (`backend/models/postModel.js`)
-  - caption, media{url, publicId, type}, user, likes[], comments[]
-  - index: `{ user: 1, createdAt: -1 }`
-- `Comment` (`backend/models/commentModel.js`)
-  - text, user
-- `Notification` (`backend/models/notificationModel.js`)
-
-## Frontend Highlights
-- Auth gating in `frontend/components/Home/home.tsx` using `GET /users/me`, Redux Toolkit (`setAuthUser`), and redirects via `next/navigation`.
-- Auth forms in `frontend/components/Auth/Login.tsx` and `Signup.tsx` using Axios + `handleAuthRequest`, Sonner toasts, and router navigation.
-- UI/UX: TailwindCSS, Radix UI primitives, Framer Motion animations, Sonner toasts.
-
-## Security & Middleware
-- `helmet`, `express-mongo-sanitize`, `hpp`, `cors({ origin: ["http://localhost:3000"], credentials: true })`, `cookie-parser`, `morgan` (dev)
-- JWT in httpOnly cookies; client uses `withCredentials: true` (see `Login.tsx`, `home.tsx`)
-
-## Environment & Running Locally
-- Frontend (`frontend/.env.local`): `NEXT_PUBLIC_BACKEND_API=http://localhost:<port>/api/v1`
-- Backend (`backend/config.env`): `PORT`, `DB`, `JWT_*`, `CLOUDINARY_*`, SMTP creds
-- Commands:
-  - Frontend: `npm install && npm run dev` (in `frontend/`)
-  - Backend: `npm install && npm start` (in `backend/`)
+> A **premium social media platform** built exclusively for the SRM University AP campus community. Share moments, build connections, and stay connected — all in one beautiful dark-themed experience.
 
 ---
 
-## Concise Q&A (tailored to this codebase)
-- Q: What is ConnectSRMAP?
-  - A: A student-only social app for SRMAP with verified accounts, posts (image/video), likes/comments, follow system, notifications, and search.
-- Q: Why these technologies?
-  - A: Next.js App Router for DX/SSR, Redux Toolkit for persistent auth state, Express + Mongoose for flexible APIs, Cloudinary for media, Nodemailer for OTP/password emails. Security middlewares protect inputs and headers.
-- Q: How is authentication implemented?
-  - A: JWT set in httpOnly cookies on login/signup. The client calls `GET /users/me` with `withCredentials: true` to validate sessions and gate routes. OTP verification sets `isVerified` on `User`.
-- Q: Where is data stored?
-  - A: MongoDB (Users, Posts, Comments, Notifications) via Mongoose. Media files are stored in Cloudinary; public URLs are saved in the `Post.media` field.
-- Q: How do you upload media?
-  - A: Multer parses multipart form data; backend uploads to Cloudinary and stores `{ url, publicId, type }` in `Post.media`.
-- Q: What are key routes?
-  - A: Users: signup/login/logout/verify/me/edit-profile/follow/notifications/search. Posts: create/all/user-post/save/like/comment/delete.
-- Q: How is the home page protected?
-  - A: `home.tsx` calls `/users/me`; if unauthenticated, it redirects to `/auth/login`. On success, it stores the user in Redux and renders the feed and sidebars.
-- Q: How is security handled?
-  - A: `helmet`, `express-mongo-sanitize`, `hpp`, CORS with `credentials`, cookie-based JWT, sanitized inputs, centralized error handling, and process-level guards in `server.js`.
-- Q: How would you scale?
-  - A: Add pagination/cursor-based queries for feeds, CDN for media (Cloudinary already helps), cache hot endpoints, use indexes, and consider WebSocket/Socket.IO for real-time notifications.
-- Q: What improvements next?
-  - A: Implement full real-time notifications/messages with Socket.IO, enrich search, add RSC/caching for feed, and extend test coverage for controllers.
+## 📑 Table of Contents
 
-## Interview Q&A (Question and Answer Format)
+- [Tech Stack](#-tech-stack)
+- [Getting Started](#-getting-started)
+- [User Journey & Visual Flow](#-user-journey--visual-flow)
+- [Project Architecture](#-project-architecture)
+- [Frontend Structure](#-frontend-structure)
+- [Backend Structure](#-backend-structure)
+- [Route Flow Map](#-route-flow-map)
+- [Database Models](#-database-models)
+- [State Management](#-state-management)
+- [Design System](#-design-system)
+- [API Reference](#-api-reference)
+- [Deployment](#-deployment)
 
-### Product / Product Design
-- Q: What problem does ConnectSRMAP solve, and who is the primary user?
-  - A: It gives SRMAP students a verified, campus-only social space to follow peers, share media, and discover others. Primary users are verified SRMAP students.
-- Q: Which core features did you prioritize for MVP and why?
-  - A: Signup/login with email OTP, edit profile, follow/unfollow, create post with media, like/comment, notifications, and search. These enable a complete creation–engagement–discovery loop.
-- Q: Why follower-based feed over global or interest-based?
-  - A: For a closed community, follower feeds reduce noise, improve relevance, and are simpler to moderate and scale initially.
-- Q: How would you measure success on campus?
-  - A: DAU/MAU, signup→verify conversion, weekly active posters/commenters, median session length, follower growth, and time-to-first-follow after signup.
+---
 
-### Frontend Implementation
-- Q: Walk me through the auth gating in `frontend/components/Home/home.tsx`.
-  - A: On mount, if Redux user is empty, call `GET ${BASE_API_URL}/users/me` (withCredentials). If 200, dispatch `setAuthUser` and render; else redirect to `/auth/login`. A spinner shows during the check.
-- Q: Why Next.js App Router?
-  - A: File-based routing, server/client component flexibility, built-in performance features, and a clean data-fetching model suited for modern React 19.
-- Q: Why Redux Toolkit + redux-persist for auth state instead of Context/React Query?
-  - A: Auth/session is client state shared app-wide; RTK gives predictable reducers and devtools, and persist survives reloads. React Query excels at server cache, not session state; Context scales poorly.
-- Q: How do you handle API error messages and loading consistently?
-  - A: Central `handleAuthRequest` wraps Axios calls to toggle loading and surface toasts (see `components/Auth/Login.tsx`, `Signup.tsx`).
-- Q: How is mobile responsiveness handled for the three-column layout?
-  - A: LeftSidebar hidden on small screens and opened via Radix `Sheet` with `MenuIcon`; RightSidebar hidden until large breakpoints; Feed flexes (see `components/Home/home.tsx`).
-- Q: Where and why Framer Motion and Radix UI?
-  - A: Radix components (Sheet/Dialog/Dropdown/Tabs) provide accessible primitives; Framer Motion for smooth transitions/animations in interactive areas.
-- Q: How do you ensure sensitive tokens aren’t exposed client-side?
-  - A: JWT is in an httpOnly cookie. Frontend uses only `NEXT_PUBLIC_*` envs like `NEXT_PUBLIC_BACKEND_API` (`frontend/server.ts`).
+## 🛠 Tech Stack
 
-### Backend Implementation
-- Q: Show the Express structure and responsibilities of `app.js` vs `server.js`.
-  - A: `server.js` loads env, connects Mongo (`mongoose.connect`), starts server, and handles process-level errors. `app.js` builds the Express app: middleware (helmet, sanitize, hpp, cors, cookie-parser), routes (`/api/v1/users`, `/api/v1/posts`), static, and global error handler.
-- Q: How is CORS configured and why is `credentials: true` necessary?
-  - A: `cors({ origin: ["http://localhost:3000"], credentials: true })` so cookies are sent with cross-origin Axios requests; required for cookie-based auth.
-- Q: Explain `isAuthenticated` and how it validates JWT from cookies.
-  - A: It reads the JWT from the httpOnly cookie, verifies it, loads the user, ensures validity (e.g., verified), and attaches `req.user`; otherwise 401. Used on protected routes like `/users/me`, create post, follow, etc.
-- Q: Where are global errors handled and what’s the response shape?
-  - A: Unknown routes call `next(new AppError(...))`. `controllers/errorController.js` formats `{ status, statusCode, message }` (more detail in dev, minimal in prod).
-- Q: How do you implement follow/unfollow safely?
-  - A: Update both users’ arrays (`followers`/`following`) with idempotent operations and validations to prevent duplicates/inconsistency.
+| Layer       | Technology                                                                    |
+| ----------- | ----------------------------------------------------------------------------- |
+| **Frontend**| Next.js 15 (App Router + Turbopack), React 19, TypeScript, Tailwind CSS       |
+| **Backend** | Node.js, Express.js, Mongoose                                                 |
+| **Database**| MongoDB Atlas                                                                 |
+| **Auth**    | JWT (httpOnly cookies) + OTP email verification                               |
+| **Media**   | Cloudinary (image/video upload via Multer)                                    |
+| **State**   | Redux Toolkit + Redux Persist                                                 |
+| **UI**      | shadcn/ui (Radix primitives) + Custom dark design system                      |
+| **Realtime**| Socket.IO (notifications & messaging)                                         |
+| **Hosting** | Vercel (frontend) + Render (backend)                                          |
 
-### Authentication / Security
-- Q: Walk me through signup → email OTP → verify → login.
-  - A: Signup creates user, hashes password, generates OTP+expiry, emails OTP. `/verify` (auth) validates OTP and sets `isVerified`. Login issues JWT in httpOnly cookie; client validates via `/users/me`.
-- Q: Where is the JWT stored and implications of httpOnly cookie storage?
-  - A: In an httpOnly cookie—prevents JS access (mitigates XSS token theft). Use `Secure` and `SameSite` flags and optionally CSRF tokens for state-changing requests.
-- Q: How would you protect against CSRF with cookie auth?
-  - A: SameSite cookies, CSRF tokens for mutations, and/or Origin/Referer checks server-side.
-- Q: Why `express-mongo-sanitize`? Example attack?
-  - A: Prevents injection using operators like `$gt`/`$ne`. E.g., `{ password: { $gt: "" } }` could bypass checks without sanitization.
-- Q: How are rate-limits applied and where stricter?
-  - A: Stricter on `/login`, `/signup`, `/forget-password`, `/reset-password`, `/verify`; moderate on posting/like/comment endpoints.
+---
 
-### Data Models and DB
-- Q: Walk through the `User` schema and why.
-  - A: Fields: `username`, `email`, `password` (hashed), `profilePicture`, `bio`; relations: `followers`, `following`, `posts`, `savedPosts`; verification and reset OTPs with expiries; pre-save hash; `correctPassword` method (see `backend/models/userModel.js`).
-- Q: Why index `{ user: 1, createdAt: -1 }` on `Post`?
-  - A: Optimizes timelines and recent-post queries with efficient sort and pagination by recency per user (see `backend/models/postModel.js`).
-- Q: How do you model notifications—separate collection or embed?
-  - A: Separate collection for scalable queries (by user, unread counts, mark-as-read) and to avoid bloating the `User` document.
-- Q: How would you migrate to store more profile metadata?
-  - A: Add fields with sane defaults, run a migration/backfill script, and make code tolerant to missing fields during rollout.
+## 🚀 Getting Started
 
-### File Uploads & Media
-- Q: How are media uploaded and stored? What’s saved in Mongo?
-  - A: `multer.single("media")` parses multipart; controller uploads to Cloudinary; Mongo stores `{ url, publicId, type }` in `Post.media` with caption/user.
-- Q: How do you handle large files and restrict types/sizes?
-  - A: Multer limits and server-side MIME validation; optionally `sharp` for image transformations and size control.
-- Q: How do you delete media from Cloudinary when posts are deleted?
-  - A: On `DELETE /posts/delete-post/:id`, use the saved `publicId` to call Cloudinary’s destroy API before/after removing the Mongo document.
+### Prerequisites
 
-### API Design
-- Q: Why these endpoints under `/api/v1/users` and `/api/v1/posts`?
-  - A: They mirror core user actions (signup/login/edit/follow/notify/search) and content actions (create/list/like/comment/save/delete), keeping concerns separated and predictable.
-- Q: Which routes are public vs protected and why?
-  - A: Public: `/posts/all`, viewing profiles. Protected: anything state-changing or user-specific (`/users/me`, create post, save/like/comment, edit-profile, notifications).
-- Q: How would you version the API for future changes?
-  - A: Maintain `/api/v1` and introduce `/api/v2` for breaking changes with a deprecation window.
+- Node.js >= 18
+- MongoDB Atlas cluster (connection string in `backend/config.env`)
+- Cloudinary account (API keys in `backend/config.env`)
 
-### Real-time Features
-- Q: How would you integrate Socket.IO for notifications?
-  - A: Initialize on the server, authenticate socket connections, join user rooms, and emit events on follow/like/comment/mention actions.
-- Q: What client changes to receive/display notifications?
-  - A: Use `socket.io-client`, connect after login, subscribe to notification events, dispatch to Redux and show toasts/badges.
-- Q: If notifications are high-volume, how do you scale delivery?
-  - A: Use a Redis adapter for Socket.IO, horizontal scaling, queue-based fanout, rate-limit and batch notifications.
+### 1. Clone the Repository
 
-### Performance & Scaling
-- Q: How to implement pagination/infinite scroll for `/posts/all`?
-  - A: Cursor-based on `createdAt` (and `_id` tiebreaker). Return `nextCursor`; query `createdAt < cursor` for subsequent pages.
-- Q: How to cache feed responses and invalidate after new posts?
-  - A: Cache user feed keys in Redis; on new post, invalidate followers’ keys or use write-through to push updates.
-- Q: How to scale media and CDN for production?
-  - A: Lean on Cloudinary’s CDN, transformations, responsive breakpoints, lazy loading, and caching headers.
+```bash
+git clone https://github.com/Kedareswar13/ConnectSRMAP.git
+cd ConnectSRMAP
+```
 
-### Testing & Reliability
-- Q: How would you unit test `authController` and `postController`?
-  - A: Mock models, bcrypt, Cloudinary; assert validation, happy paths, and error branches with Jest. Use Supertest for route-level tests.
-- Q: Which integration/e2e tests before shipping?
-  - A: Flows: signup→verify→login, create post, like/comment, follow/unfollow, edit profile, notifications listing/mark-as-read.
-- Q: How does the server handle `uncaughtException` and `unhandledRejection`?
-  - A: Logged and gracefully shutdown in `backend/server.js` with `process.on(...)` handlers.
+### 2. Backend Setup
 
-### DevOps / Deployment
-- Q: What env vars are required and how do you manage secrets?
-  - A: Backend: `PORT`, `DB`, `JWT_SECRET`, `JWT_EXPIRES_IN`, `CLOUDINARY_*`, SMTP creds. Frontend: `NEXT_PUBLIC_BACKEND_API`. Use a secret manager (e.g., platform secrets/Env vars store) in prod.
-- Q: How to configure cookies and CORS for HTTPS + custom domain?
-  - A: Set cookies `Secure` + `SameSite=None`, set exact `origin` to prod domain, keep `credentials: true`, and ensure TLS termination.
-- Q: What CI/CD pipeline?
-  - A: PR lint/tests, build artifacts, deploy backend (e.g., Render/Heroku/VM + Mongo Atlas) and frontend (e.g., Vercel/Netlify), with environment promotion and rollback.
-- Q: How to configure logging and monitoring in prod?
-  - A: Structured logs (Winston/Pino), centralized log aggregation, error tracking (Sentry), APM (New Relic/Datadog), healthchecks and uptime alerts.
+```bash
+cd backend
+npm install
+```
 
-### Trade-offs / Architecture Decisions
-- Q: Why Redux Toolkit instead of React Query or hybrid?
-  - A: RTK fits client/session/UI state and persistence best. A hybrid is viable later: React Query for server cache (feeds), RTK for auth/UI.
-- Q: Would you move to microservices as the app grows?
-  - A: Yes—separate notifications, media processing, and auth first; use an event bus and shared identity.
-- Q: How to re-design notifications for very high volume?
-  - A: Denormalize per-user inboxes, async fanout via queues, TTL/archival policies, and batched reads.
+Create/verify `backend/config.env` with:
 
-### UX / Product Follow-ups
-- Q: How do you prevent spam accounts and verify users today?
-  - A: Email OTP verification, rate limits on auth and content actions, potential campus-domain allowlist.
-- Q: How would you implement content moderation and takedowns?
-  - A: Reporting endpoints, admin tooling for review/takedown, audit logs, and file-type validation.
-- Q: How would you surface discovery (search/suggested/hashtags)?
-  - A: Current: `/users/search` and `/users/suggested-user`. Future: hashtag indexing, trending signals, and personalized ranking.
+```env
+DATABASE=mongodb+srv://<user>:<password>@<cluster>.mongodb.net/<dbname>
+PORT=8000
+JWT_SECRET=<your_jwt_secret>
+JWT_EXPIRES_IN=90d
+JWT_COOKIE_EXPIRES_IN=90
+
+CLOUDINARY_CLOUD_NAME=<your_cloud_name>
+CLOUDINARY_API_KEY=<your_api_key>
+CLOUDINARY_API_SECRET=<your_api_secret>
+
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=<your_email>
+SMTP_PASS=<your_app_password>
+
+NODE_ENV=development
+```
+
+Start the backend:
+
+```bash
+npm start
+# Server runs on http://localhost:8000
+```
+
+### 3. Frontend Setup
+
+```bash
+cd frontend
+npm install
+```
+
+Create/verify `frontend/.env.local` with:
+
+```env
+NEXT_PUBLIC_API_URL=http://localhost:8000/api/v1
+```
+
+Start the frontend:
+
+```bash
+npm run dev
+# App runs on http://localhost:3000
+```
+
+---
+
+## 📸 User Journey & Visual Flow
+
+Take a look at the seamless experience ConnectSRMAP offers, from onboarding to social engagement.
+
+### 1. Authentication & Onboarding
+The journey begins with a secure and intuitive authentication flow.
+- **Sign Up**: New users create an account with a beautifully designed dark-themed form.
+  <br/>
+  <img src="assets/signup_page.jpg" alt="Sign Up Page" width="800"/>
+
+- **Email Verification**: An OTP is sent to the user's registered email address for verification.
+  <br/>
+  <img src="assets/Email_otp_template.jpg" alt="Email OTP Template" width="800"/>
+
+- **OTP Verification**: Users enter the OTP to confirm their identity and activate their account.
+  <br/>
+  <img src="assets/otp_verification_page.jpg" alt="OTP Verification Page" width="800"/>
+
+- **Login**: Returning users can log in securely to access their feed.
+  <br/>
+  <img src="assets/login_page.jpg" alt="Login Page" width="800"/>
+
+### 2. The Main Feed
+Once authenticated, users land on the main feed, the heart of the platform.
+- **Home Feed**: A rich, dynamic feed where users can scroll through posts, view media, and interact with the community.
+  <br/>
+  <img src="assets/feed_page.jpg" alt="Feed Page" width="800"/>
+
+### 3. Creating & Sharing Moments
+Users can easily share their own moments with the community.
+- **Post Creation**: A clean, modal-based interface allows users to upload images or videos and write captions.
+  <br/>
+  <img src="assets/post_creation_page.jpg" alt="Post Creation Page" width="800"/>
+
+- **Live Feed Update**: Instantly after creation, the new post seamlessly appears at the top of the feed.
+  <br/>
+  <img src="assets/after_post_creation_feed_page.jpg" alt="After Post Creation" width="800"/>
+
+### 4. Engagement & Interaction
+ConnectSRMAP is built for connection, allowing rich interactions on every post.
+- **Comments & Details**: Clicking on a post opens a detailed view where users can read and leave comments, creating engaging discussions.
+  <br/>
+  <img src="assets/post_description_comment_page.jpg" alt="Post Description & Comments" width="800"/>
+
+### 5. Discoverability & Networking
+Finding and connecting with other students is a breeze.
+- **Search**: A responsive search feature helps users find friends and peers quickly.
+  <br/>
+  <img src="assets/search_page.jpg" alt="Search Page" width="800"/>
+
+- **User Profiles**: Visiting another user's profile showcases their posts, bio, and connection status, encouraging networking.
+  <br/>
+  <img src="assets/others_profile_page.jpg" alt="Others Profile Page" width="800"/>
+
+---
+
+## 🏗 Project Architecture
+
+```
+ConnectSRMAP/
+├── backend/                    # Express.js API server
+│   ├── config.env              # Environment variables (DB, JWT, Cloudinary, SMTP)
+│   ├── server.js               # Entry point — starts Express + Socket.IO + DB connection
+│   ├── app.js                  # Express app config — middleware, CORS, routes
+│   ├── controllers/            # Business logic handlers
+│   │   ├── authController.js   # Signup, login, verify OTP, password reset
+│   │   ├── userController.js   # Profile, follow/unfollow, search, suggestions
+│   │   ├── postController.js   # CRUD posts, likes, comments, bookmarks
+│   │   └── errorController.js  # Global error handler
+│   ├── models/                 # Mongoose schemas
+│   │   ├── userModel.js        # User schema (auth, profile, followers)
+│   │   ├── postModel.js        # Post schema (media, likes, comments)
+│   │   ├── commentModel.js     # Comment sub-schema
+│   │   └── notificationModel.js# Notification schema (type, user, post refs)
+│   ├── routes/                 # Express route definitions
+│   │   ├── userRoutes.js       # /api/v1/users/* endpoints
+│   │   └── postRoutes.js       # /api/v1/posts/* endpoints
+│   ├── middlewares/            # Auth middleware (JWT verification)
+│   └── utils/                  # Helpers (email sender, cloudinary config)
+│
+├── frontend/                   # Next.js 15 App
+│   ├── app/                    # App Router pages
+│   │   ├── layout.tsx          # Root layout (providers, fonts, Toaster)
+│   │   ├── globals.css         # Design system (dark theme, animations, utilities)
+│   │   ├── page.tsx            # Home route "/" → renders <Home />
+│   │   ├── auth/               # Auth pages
+│   │   │   ├── login/page.tsx  # Login route → <Login />
+│   │   │   ├── signup/page.tsx # Signup route → <Signup />
+│   │   │   ├── verify/page.tsx # OTP verification → <Verify />
+│   │   │   ├── forget-password/page.tsx # Forgot password → <ForgetPassword />
+│   │   │   └── reset-password/page.tsx  # Reset password → <PasswordReset />
+│   │   ├── profile/[id]/page.tsx        # Dynamic profile → <Profile id={params.id} />
+│   │   └── edit-profile/page.tsx        # Edit profile page
+│   │
+│   ├── components/             # All React components
+│   │   ├── Auth/               # Authentication components
+│   │   │   ├── Login.tsx       # Login form with dark sidebar background
+│   │   │   ├── Signup.tsx      # Signup form matching login design
+│   │   │   ├── PasswordInput.tsx # Reusable password field with toggle
+│   │   │   ├── Verify.tsx      # OTP input grid with countdown timer
+│   │   │   ├── ForgetPassword.tsx # Email input for password reset
+│   │   │   └── ResetPassword.tsx  # OTP + new password form
+│   │   │
+│   │   ├── Home/               # Home page components
+│   │   │   ├── home.tsx        # Main layout (sidebar + feed + right sidebar)
+│   │   │   ├── LeftSidebar.tsx # Navigation, notifications, user card
+│   │   │   ├── Feed.tsx        # Post feed with like/comment/save actions
+│   │   │   ├── RightSidebar.tsx# Suggested users, current user card
+│   │   │   └── CreatePostModel.tsx # Create post dialog (image/video upload)
+│   │   │
+│   │   ├── Profile/            # Profile page components
+│   │   │   ├── Profile.tsx     # Full profile view (header + posts grid)
+│   │   │   ├── Post.tsx        # Profile posts grid (own posts)
+│   │   │   ├── Saved.tsx       # Saved posts grid wrapper
+│   │   │   ├── SavedPosts.tsx  # Saved posts grid with hover overlays
+│   │   │   ├── Posts.tsx       # Profile grid renderer
+│   │   │   └── PostDialog.tsx  # Full post view dialog (media + comments)
+│   │   │
+│   │   ├── Helper/             # Shared utility components
+│   │   │   ├── Comments.tsx    # Comment list with delete (dark themed)
+│   │   │   ├── DotButton.tsx   # Post options menu (follow/delete/view)
+│   │   │   ├── Notifications.tsx # Notification item renderer
+│   │   │   ├── Search.tsx      # Full-screen search overlay
+│   │   │   └── loadingButton.tsx # Button with loading spinner
+│   │   │
+│   │   ├── ui/                 # shadcn/ui primitives (Radix-based)
+│   │   │   ├── dialog.tsx      # Dialog/Modal primitive
+│   │   │   ├── button.tsx      # Button variants
+│   │   │   ├── avatar.tsx      # Avatar with fallback
+│   │   │   ├── sheet.tsx       # Side drawer (mobile nav)
+│   │   │   └── ...             # Other Radix UI components
+│   │   │
+│   │   └── utils/              # Frontend utilities
+│   │       └── apiRequest.ts   # Centralized API request handler with auth
+│   │
+│   ├── store/                  # Redux store
+│   │   ├── store.ts            # Store config with persist
+│   │   ├── authSlice.ts        # User auth state (login/logout)
+│   │   ├── postSlice.ts        # Posts state (CRUD, likes, comments)
+│   │   └── notificationSlice.ts# Notifications state
+│   │
+│   ├── types/                  # TypeScript interfaces
+│   │   └── index.ts            # User, Post, Comment, Notification types
+│   │
+│   ├── utils/                  # Utility functions
+│   │   └── formatTime.ts       # Timestamp formatting (e.g. "2 hours ago")
+│   │
+│   └── server.ts               # BASE_API_URL export
+│
+└── README.md                   # This file
+```
+
+---
+
+## 🖼 Frontend Structure — Detailed
+
+### App Router Pages (`frontend/app/`)
+
+| Route                        | Page File                      | Component              | Purpose                                |
+| ---------------------------- | ------------------------------ | ---------------------- | -------------------------------------- |
+| `/`                          | `app/page.tsx`                 | `<Home />`             | Main feed with sidebar navigation      |
+| `/auth/login`                | `app/auth/login/page.tsx`      | `<Login />`            | User authentication                    |
+| `/auth/signup`               | `app/auth/signup/page.tsx`     | `<Signup />`           | New user registration                  |
+| `/auth/verify`               | `app/auth/verify/page.tsx`     | `<Verify />`           | OTP email verification                 |
+| `/auth/forget-password`      | `app/auth/forget-password/page.tsx` | `<ForgetPassword />` | Request password reset OTP            |
+| `/auth/reset-password`       | `app/auth/reset-password/page.tsx`  | `<PasswordReset />`  | Enter OTP + new password               |
+| `/profile/[id]`              | `app/profile/[id]/page.tsx`    | `<Profile id={id} />`  | View any user's profile                |
+| `/edit-profile`              | `app/edit-profile/page.tsx`    | `<EditProfile />`      | Edit own profile (photo, bio, password)|
+
+### Key Components
+
+#### `Home/home.tsx` — Main Layout
+- **Fixed sidebar** (left 64px) with `<LeftSidebar />`
+- **Feed** (center) with `<Feed />`
+- **Right sidebar** (suggested users) visible on `lg+`
+- Mobile: hamburger menu with `<Sheet>` drawer
+
+#### `Home/Feed.tsx` — Post Feed
+- Fetches all posts via `GET /api/v1/posts/all`
+- Filters out orphaned posts (null user)
+- Each post: avatar, caption, media (image/video), like/comment/save buttons
+- Like → `POST /api/v1/posts/like-dislike/:id`
+- Save → `POST /api/v1/posts/save-unsave-post/:id`
+- Comment → `POST /api/v1/posts/comment/:id`
+- Clicking comment icon → opens `<PostDialog />`
+
+#### `Home/LeftSidebar.tsx` — Navigation
+- Routes: Home, Search, Messages, Notifications, Create, Profile, Logout
+- Notification panel: bell icon with unread count badge + slide-down list
+- Search: opens `<Search />` overlay
+- Create: opens `<CreatePostModel />` dialog
+
+#### `Profile/PostDialog.tsx` — Post Detail
+- Split layout: media left (55%), comments right (45%)
+- Inline comment input with "Post" button
+- Like/save/share actions mirrored from Feed
+- Delete option for own posts
+
+---
+
+## 🗄 Backend Structure — Detailed
+
+### `server.js` — Entry Point
+1. Loads `config.env` via `dotenv`
+2. Connects to MongoDB via Mongoose
+3. Creates HTTP server from `app.js`
+4. Attaches Socket.IO for realtime events (notifications, messages)
+5. Listens on `PORT` (default 8000)
+
+### `app.js` — Express Configuration
+- `cors()` with credentials + allowed origins
+- `cookieParser()` for JWT tokens
+- `express.json()` + `express.urlencoded()` for body parsing
+- Route mounting: `/api/v1/users` → userRoutes, `/api/v1/posts` → postRoutes
+- Global error handler via `errorController`
+
+### Controllers
+
+#### `authController.js`
+| Function          | Purpose                                              |
+| ----------------- | ---------------------------------------------------- |
+| `signup`          | Register user + hash password + send OTP email       |
+| `login`           | Validate credentials + issue JWT cookie              |
+| `verify`          | Verify OTP code, mark user as verified               |
+| `resendOtp`       | Generate and email a fresh OTP                       |
+| `forgetPassword`  | Email a password-reset OTP                           |
+| `resetPassword`   | Validate OTP + update password                       |
+| `changePassword`  | Authenticated password change (current + new)        |
+| `protect`         | Middleware: verify JWT from cookie, attach `req.user` |
+
+#### `userController.js`
+| Function            | Purpose                                              |
+| ------------------- | ---------------------------------------------------- |
+| `getMe`             | Return current authenticated user                    |
+| `getProfile`        | Return any user by ID (populated posts)              |
+| `editProfile`       | Update username, bio, profile picture (Cloudinary)    |
+| `followUnfollow`    | Toggle follow/unfollow between users                 |
+| `suggestedUsers`    | Return random users not yet followed                 |
+| `searchUsers`       | Search users by username query                       |
+| `deleteAccount`     | Delete user + their posts + cleanup references       |
+
+#### `postController.js`
+| Function          | Purpose                                              |
+| ----------------- | ---------------------------------------------------- |
+| `createPost`      | Upload media to Cloudinary + create post document    |
+| `getAllPosts`      | Return all posts (populated user + comments.user)    |
+| `likeDislike`     | Toggle user ID in post.likes array                   |
+| `addComment`      | Push new comment to post.comments                    |
+| `deleteComment`   | Remove comment from post by comment ID               |
+| `saveUnsave`      | Toggle post ID in user.savedPosts                    |
+| `deletePost`      | Delete post + media from Cloudinary                  |
+
+---
+
+## 🗺 Route Flow Map
+
+### Authentication Flow
+```
+/auth/signup → POST /users/signup → JWT cookie set → /auth/verify
+/auth/verify → POST /users/verify → verified=true → / (home)
+/auth/login  → POST /users/login  → JWT cookie set → / (home)
+/ (home)     → GET /users/me      → auth check → show feed OR → /auth/login
+```
+
+### Password Reset Flow
+```
+/auth/forget-password → POST /users/forget-password → email OTP
+/auth/reset-password?email=... → POST /users/reset-password → password updated
+```
+
+### Main App Flow
+```
+/ (Home)           → Feed renders → GET /posts/all
+                   → Each post: like, comment, save, view dialog
+/profile/[id]      → GET /users/profile/:id → posts grid
+/edit-profile      → POST /users/edit-profile → update profile
+                   → POST /users/change-password → update password
+```
+
+---
+
+## 📊 Database Models
+
+### User (`userModel.js`)
+```javascript
+{
+  username:       String (unique, required),
+  email:          String (unique, required),
+  password:       String (hashed with bcrypt),
+  profilePicture: String (Cloudinary URL),
+  bio:            String (default ""),
+  isVerified:     Boolean (default false),
+  otp:            String,
+  otpExpires:     Date,
+  posts:          [ObjectId → Post],
+  savedPosts:     [ObjectId → Post],
+  followers:      [ObjectId → User],
+  following:      [ObjectId → User],
+  createdAt:      Date
+}
+```
+
+### Post (`postModel.js`)
+```javascript
+{
+  user:     ObjectId → User (required),
+  caption:  String,
+  media:    { url: String, type: "image" | "video", publicId: String },
+  likes:    [ObjectId → User],
+  comments: [ObjectId → Comment],
+  createdAt: Date
+}
+```
+
+### Comment (`commentModel.js`)
+```javascript
+{
+  user:      ObjectId → User,
+  text:      String (required),
+  createdAt: Date
+}
+```
+
+### Notification (`notificationModel.js`)
+```javascript
+{
+  type:       String ("like", "comment", "follow"),
+  sender:     ObjectId → User,
+  receiver:   ObjectId → User,
+  postId:     ObjectId → Post (optional),
+  message:    String,
+  read:       Boolean (default false),
+  createdAt:  Date
+}
+```
+
+---
+
+## 🧠 State Management
+
+### Redux Store (`store/store.ts`)
+
+| Slice             | State Shape                                | Persisted? |
+| ----------------- | ------------------------------------------ | ---------- |
+| `auth`            | `{ user: User \| null }`                   | ✅ Yes     |
+| `posts`           | `{ posts: Post[] }`                        | ❌ No      |
+| `notifications`   | `{ notifications: Notification[] }`        | ❌ No      |
+
+### Key Actions
+
+- **`setAuthUser(user)`** — Set logged-in user (persisted to localStorage)
+- **`signOut()`** — Clear user + localStorage
+- **`setPost(posts)`** — Replace all posts
+- **`addPost(post)`** — Prepend new post
+- **`likeOrDislike({postId, userId})`** — Toggle like in post.likes
+- **`addComment({postId, comment})`** — Push comment to post
+- **`deleteComment({postId, commentId})`** — Remove comment
+- **`deletePost(postId)`** — Remove post from state
+
+---
+
+## 🎨 Design System
+
+### Dark Theme Palette
+
+| Token            | Value                    | Usage                        |
+| ---------------- | ------------------------ | ---------------------------- |
+| `--bg-base`      | `hsl(230, 25%, 8%)`     | Page background              |
+| `--bg-surface`   | `hsl(230, 25%, 12%)`    | Card backgrounds             |
+| `--bg-elevated`  | `hsl(230, 25%, 16%)`    | Input backgrounds            |
+| `--bg-sidebar`   | `hsl(230, 25%, 10%)`    | Sidebar + auth form panels   |
+| Accent gradient  | Indigo → Purple          | Buttons, brand text, links   |
+| Text primary     | `white/95%`              | Headings, usernames          |
+| Text secondary   | `white/60%`              | Labels, body text            |
+| Text muted       | `white/30%`              | Placeholders, timestamps     |
+| Borders          | `white/6%`               | Dividers, card borders       |
+
+### Utility Classes
+
+- `.dark-card` — Surface card with hover shadow
+- `.btn-gradient` — Indigo→Purple gradient button
+- `.input-dark` — Dark input with focus ring
+- `.input-auth` — Translucent input for auth pages
+- `.gradient-text` — Indigo→Purple text gradient
+- `.glass-dark` — Glassmorphism backdrop
+- `.sidebar-item` — Nav item with hover/active states
+- `.post-card` — Staggered fade-in animation
+- `.animate-like-pop` — Heart bounce animation
+- `.animate-fade-in-up` — Entry animation
+
+---
+
+## 🔌 API Reference
+
+### Auth Endpoints (`/api/v1/users`)
+
+| Method | Endpoint              | Auth | Body                                              |
+| ------ | --------------------- | ---- | ------------------------------------------------- |
+| POST   | `/signup`             | ❌    | `{username, email, password, passwordConfirm}`    |
+| POST   | `/login`              | ❌    | `{email, password}`                               |
+| POST   | `/verify`             | ✅    | `{otp}`                                           |
+| POST   | `/resend-otp`         | ✅    | —                                                 |
+| POST   | `/forget-password`    | ❌    | `{email}`                                         |
+| POST   | `/reset-password`     | ❌    | `{email, otp, password, passwordConfirm}`         |
+| POST   | `/change-password`    | ✅    | `{currentPassword, newPassword, newPasswordConfirm}` |
+| GET    | `/me`                 | ✅    | —                                                 |
+| GET    | `/logout`             | ✅    | —                                                 |
+
+### User Endpoints (`/api/v1/users`)
+
+| Method | Endpoint                 | Auth | Purpose                    |
+| ------ | ------------------------ | ---- | -------------------------- |
+| GET    | `/profile/:id`           | ✅    | Get user profile           |
+| POST   | `/edit-profile`          | ✅    | Update profile (multipart) |
+| POST   | `/follow-unfollow/:id`   | ✅    | Toggle follow              |
+| GET    | `/suggested-user`        | ✅    | Get suggested users        |
+| GET    | `/search?query=...`      | ✅    | Search users               |
+| DELETE | `/delete-account`        | ✅    | Delete own account         |
+
+### Post Endpoints (`/api/v1/posts`)
+
+| Method | Endpoint                      | Auth | Purpose                    |
+| ------ | ----------------------------- | ---- | -------------------------- |
+| POST   | `/create-post`                | ✅    | Create post (multipart)    |
+| GET    | `/all`                        | ❌    | Get all posts              |
+| POST   | `/like-dislike/:id`           | ✅    | Toggle like                |
+| POST   | `/comment/:id`                | ✅    | Add comment                |
+| DELETE | `/comment/:postId/:commentId` | ✅    | Delete comment             |
+| POST   | `/save-unsave-post/:id`       | ✅    | Toggle bookmark            |
+| DELETE | `/delete-post/:id`            | ✅    | Delete post                |
+
+---
+
+## 🚢 Deployment
+
+### Frontend (Vercel)
+1. Push to GitHub
+2. Connect repo to Vercel
+3. Set environment variable: `NEXT_PUBLIC_API_URL=https://your-backend.onrender.com/api/v1`
+4. Deploy
+
+### Backend (Render)
+1. Create Web Service on Render
+2. Set build command: `npm install`
+3. Set start command: `npm start`
+4. Add all `config.env` variables as environment variables
+5. Deploy
+
+### Important CORS Config
+In `app.js`, update the `origin` array with your Vercel domain:
+```javascript
+cors({
+  origin: ["http://localhost:3000", "https://your-app.vercel.app"],
+  credentials: true,
+})
+```
+
+---
+
+## 📝 Known Issues & Next Steps
+
+- **LCP Warning**: Add `priority` prop to the first feed image for performance
+- **Comment Delete Route**: Ensure `DELETE /posts/comment/:postId/:commentId` exists in `postRoutes.js`
+- **@next/swc Mismatch**: Run `npm install next@latest` to align versions
+- **Socket.IO**: Full realtime notification delivery is set up but requires frontend Socket provider integration
+
+---
+
+## 👤 Author
+
+**Kedareswar** — [GitHub](https://github.com/Kedareswar13)
+
+---
+
+<p align="center">Built with ❤️ for the SRM University AP community</p>

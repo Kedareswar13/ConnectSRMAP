@@ -12,6 +12,7 @@ import { toast } from "sonner";
 import { useDispatch } from "react-redux";
 import { setAuthUser } from "@/store/authSlice";
 import { useRouter } from "next/navigation";
+
 interface FormData {
   username: string;
   email: string;
@@ -24,7 +25,7 @@ const Signup = () => {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState<FormData>({
-    username: "", // Fixed: Was incorrectly set to 0000
+    username: "",
     email: "",
     password: "",
     passwordConfirm: "",
@@ -47,104 +48,102 @@ const Signup = () => {
       dispatch(setAuthUser(result.data.data.user));
       toast.success(result.data.message);
       router.push("/auth/verify");
-      //TODO's
-      //1.Redirect to Home Page
-      //2.Add our user to Redux store(to store the user details when we reload the
-      //page for that we will be using the Redux-Persist)
     }
   };
 
   return (
     <div className="w-full h-screen overflow-hidden">
-      <div className="grid grid-cols-1 lg:grid-cols-7 gap-8">
-        {/* Banner */}
-        <div className="lg:col-span-4 h-screen hidden lg:block">
+      <div className="grid grid-cols-1 lg:grid-cols-2 h-screen">
+        {/* Banner - fill completely */}
+        <div className="h-screen hidden lg:block relative overflow-hidden">
           <Image
             src="/images/sinup-banner.jpg"
             alt="signup"
-            width={1000}
-            height={1000}
-            className="w-full h-full object-cover scale-110"
+            fill
+            priority
+            className="object-cover object-center"
           />
+          <div className="absolute inset-0 bg-gradient-to-t from-[hsl(230,25%,8%)] via-[hsl(230,25%,8%)]/40 to-transparent" />
+          <div className="absolute bottom-16 left-10 right-10 z-10">
+            <h2 className="text-3xl font-bold text-white/90 drop-shadow-lg">
+              Join the community at
+            </h2>
+            <h1 className="text-5xl font-extrabold mt-2 drop-shadow-lg">
+              <span className="gradient-text">ConnectSRMAP</span>
+            </h1>
+            <p className="text-white/50 mt-4 text-base max-w-sm leading-relaxed">
+              Create your profile, share your story, and connect with students across campus.
+            </p>
+          </div>
         </div>
 
-        <div className="lg:col-span-3 flex flex-col items-center justify-center h-screen">
-          <h1 className="font-bold text-xl sm:text-2xl text-left uppercase mb-8">
-            Sign Up with <span className="text-green-600">ConnectSRMAP</span>
-          </h1>
+        {/* Signup Form - dark background */}
+        <div className="flex flex-col items-center justify-center h-screen px-8"
+             style={{ background: 'hsl(230, 25%, 10%)' }}>
+          <div className="w-full max-w-md">
+            <div className="lg:hidden mb-8 text-center">
+              <h1 className="text-3xl font-extrabold gradient-text">ConnectSRMAP</h1>
+            </div>
 
-          <form
-            onSubmit={handleSubmit}
-            className="block w-[90%] sm:w-[80%] md:w-[60%] lg:w-[90%] xl:w-[80%]"
-          >
-            {/* Username Field */}
-            <div className="mb-4">
-              <label htmlFor="username" className="font-semibold mb-2 block">
-                Username
-              </label>
-              <input
-                type="text"
-                name="username"
-                id="username"
-                placeholder="Username"
-                className="px-4 py-3 bg-gray-200 rounded-lg w-full block outline-none"
-                value={formData.username}
-                onChange={handleChange}
-              />
+            <div className="mb-8">
+              <h1 className="text-3xl font-bold text-white">Create account</h1>
+              <p className="text-white/40 mt-2 text-sm">Fill in your details to get started</p>
             </div>
-            {/* Email Field */}
-            <div className="mb-4">
-              <label htmlFor="email" className="font-semibold mb-2 block">
-                Email Address
-              </label>
-              <input
-                type="email"
-                name="email"
-                id="email"
-                placeholder="Email Address"
-                className="px-4 py-3 bg-gray-200 rounded-lg w-full block outline-none"
-                value={formData.email}
-                onChange={handleChange}
-              />
+
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div>
+                <label htmlFor="username" className="block text-xs font-semibold text-white/60 mb-2 uppercase tracking-wider">
+                  Username
+                </label>
+                <input
+                  type="text"
+                  name="username"
+                  id="username"
+                  placeholder="Choose a username"
+                  className="input-auth px-4 py-3 w-full"
+                  value={formData.username}
+                  onChange={handleChange}
+                />
+              </div>
+              <div>
+                <label htmlFor="email" className="block text-xs font-semibold text-white/60 mb-2 uppercase tracking-wider">
+                  Email Address
+                </label>
+                <input
+                  type="email"
+                  name="email"
+                  id="email"
+                  placeholder="you@srmap.edu.in"
+                  className="input-auth px-4 py-3 w-full"
+                  value={formData.email}
+                  onChange={handleChange}
+                />
+              </div>
+              <div>
+                <PasswordInput label="Password" name="password" placeholder="Create a strong password" value={formData.password} onChange={handleChange} />
+              </div>
+              <div>
+                <PasswordInput label="Confirm Password" name="passwordConfirm" placeholder="Re-enter your password" value={formData.passwordConfirm} onChange={handleChange} />
+              </div>
+              <LoadingButton
+                size={"lg"}
+                className="w-full btn-gradient !rounded-xl !py-3 text-base mt-2"
+                type="submit"
+                isLoading={isLoading}
+              >
+                Create Account
+              </LoadingButton>
+            </form>
+
+            <div className="mt-8 text-center">
+              <p className="text-sm text-white/40">
+                Already have an account?{" "}
+                <Link href="/auth/login" className="text-indigo-400 font-semibold hover:text-indigo-300 transition-colors">
+                  Sign In
+                </Link>
+              </p>
             </div>
-            {/* Password */}
-            <div className="mb-4">
-              <PasswordInput
-                label="Password"
-                name="password"
-                placeholder="Enter Password"
-                value={formData.password}
-                onChange={handleChange}
-              />
-            </div>
-            {/* Confirm Password */}
-            <div className="mb-4">
-              <PasswordInput
-                label="Confirm Password"
-                name="passwordConfirm"
-                placeholder="Confirm Password"
-                value={formData.passwordConfirm}
-                onChange={handleChange}
-              />
-            </div>
-            {/* Submit Button */}
-            <LoadingButton
-              size={"lg"}
-              className="w-full mt-3"
-              type="submit"
-              isLoading={isLoading}
-            >
-              Sign Up Now
-            </LoadingButton>
-          </form>
-          <h1 className="mt-4 text-lg text-gray-800">
-            Already have an account ?{" "}
-            <Link href="/auth/login">
-              <span className="text-blue-800 underline cursor-pointer font-medium">
-                Login Here
-              </span>{" "}
-            </Link>
-          </h1>
+          </div>
         </div>
       </div>
     </div>

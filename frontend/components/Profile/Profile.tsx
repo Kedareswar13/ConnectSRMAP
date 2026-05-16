@@ -8,7 +8,7 @@ import { User } from "../../types";
 import axios from "axios";
 import { BASE_API_URL } from "../../server";
 import { handleAuthRequest } from "../utils/apiRequest";
-import { Bookmark, Grid, Loader2, MenuIcon } from "lucide-react";
+import { Bookmark, Grid, MenuIcon, Settings, UserPlus, UserMinus } from "lucide-react";
 import LeftSidebar from "../Home/LeftSidebar";
 import { Sheet, SheetContent, SheetDescription, SheetTitle, SheetTrigger } from "../ui/sheet";
 import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
@@ -22,9 +22,7 @@ import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "../ui/dialog";
 import type { AxiosError } from "axios";
 
-type Props = {
-  id: string;
-};
+type Props = { id: string; };
 
 const Profile = ({ id }: Props) => {
   const router = useRouter();
@@ -42,16 +40,9 @@ const Profile = ({ id }: Props) => {
   const isOwnProfile = user?._id === id;
 
   useEffect(() => {
-    if (!user) {
-      router.push("/auth/login");
-      return;
-    }
-
+    if (!user) { router.push("/auth/login"); return; }
     const getUser = async () => {
-      const getUserReq = async () =>
-        await axios.get(`${BASE_API_URL}/users/profile/${id}`, {
-          withCredentials: true,
-        });
+      const getUserReq = async () => await axios.get(`${BASE_API_URL}/users/profile/${id}`, { withCredentials: true });
       const result = await handleAuthRequest(getUserReq, setIsLoading);
       if (result) {
         const u = result.data.data.user as User;
@@ -61,23 +52,13 @@ const Profile = ({ id }: Props) => {
         setFollowingCount(u.following.length);
       }
     };
-
     getUser();
   }, [user, router, id]);
 
   const handleFollowUnfollow = async () => {
-    if (!user?._id) {
-      toast.error("User not found. Please log in.");
-      return;
-    }
-
+    if (!user?._id) { toast.error("Please log in."); return; }
     try {
-      const result = await axios.post(
-        `${BASE_API_URL}/users/follow-unfollow/${id}`,
-        {},
-        { withCredentials: true }
-      );
-
+      const result = await axios.post(`${BASE_API_URL}/users/follow-unfollow/${id}`, {}, { withCredentials: true });
       if (result.data.status === "success") {
         dispatch(setAuthUser(result.data.data.user));
         toast.success(result.data.message);
@@ -85,7 +66,6 @@ const Profile = ({ id }: Props) => {
         setFollowerCount(prev => (isFollowing ? prev - 1 : prev + 1));
       }
     } catch (error: unknown) {
-      console.error("Error following/unfollowing:", error);
       const axiosError = error as AxiosError<{ message?: string }>;
       toast.error(axiosError?.response?.data?.message || "Failed to follow/unfollow");
     }
@@ -93,126 +73,114 @@ const Profile = ({ id }: Props) => {
 
   const handleDeleteAccount = async () => {
     if (!user?._id) return;
-
     setIsDeleting(true);
     try {
-      const result = await axios.delete(
-        `${BASE_API_URL}/users/delete-account`,
-        { withCredentials: true }
-      );
-
-      if (result.data.status === "success") {
-        dispatch(signOut());
-        toast.success("Account deleted successfully");
-        router.replace("/auth/login");
-      }
+      const result = await axios.delete(`${BASE_API_URL}/users/delete-account`, { withCredentials: true });
+      if (result.data.status === "success") { dispatch(signOut()); toast.success("Account deleted"); router.replace("/auth/login"); }
     } catch (error: unknown) {
-      console.error("Error deleting account:", error);
       const axiosError = error as AxiosError<{ message?: string }>;
       toast.error(axiosError?.response?.data?.message || "Failed to delete account");
-    } finally {
-      setIsDeleting(false);
-      setShowDeleteDialog(false);
-    }
+    } finally { setIsDeleting(false); setShowDeleteDialog(false); }
   };
 
-  // **Guard against rendering before data arrives**
   if (isLoading || !userProfile) {
     return (
       <div className="w-full h-screen flex items-center justify-center">
-        <Loader2 className="animate-spin" />
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-12 h-12 rounded-full border-4 border-white/10 border-t-indigo-500 animate-spin" />
+          <p className="text-sm text-white/30 animate-pulse">Loading profile...</p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="flex mb-20">
-      <div className="w-[20%] hidden md:block border-r-2 h-screen fixed">
+    <div className="flex min-h-screen">
+      <div className="w-64 hidden md:block h-screen fixed z-10">
         <LeftSidebar />
       </div>
-      <div className="flex-1 md:ml-[20%] overflow-y-auto">
-        <div className="md:hidden">
-          <Sheet>
-            <SheetTrigger>
-              <MenuIcon />
-            </SheetTrigger>
-            <SheetContent>
-              <SheetTitle />
-              <SheetDescription />
-              <LeftSidebar />
-            </SheetContent>
-          </Sheet>
+      <div className="flex-1 md:ml-64 overflow-y-auto pb-20">
+        {/* Mobile Header */}
+        <div className="md:hidden sticky top-0 z-20 border-b border-white/5 px-4 py-3" style={{ background: 'hsl(230,25%,10%)' }}>
+          <div className="flex items-center justify-between">
+            <h1 className="text-lg font-bold gradient-text">ConnectSRMAP</h1>
+            <Sheet>
+              <SheetTrigger><MenuIcon className="w-6 h-6 text-white/60" /></SheetTrigger>
+              <SheetContent side="left" className="w-64 p-0 border-none">
+                <SheetTitle className="sr-only">Navigation</SheetTitle>
+                <SheetDescription className="sr-only">App navigation</SheetDescription>
+                <LeftSidebar />
+              </SheetContent>
+            </Sheet>
+          </div>
         </div>
-        <div className="w-[90%] sm:w-[80%] mx-auto">
-          <div className="mt-16 flex md:flex-row flex-col md:items-center pb-16 border-b-2 md:space-x-20">
-            <Avatar className="w-[10rem] h-[10rem] mb-8 md:mb-0 overflow-hidden">
-              <AvatarImage
-                src={userProfile.profilePicture}
-                className="h-full w-full object-cover object-center rounded-full"
-              />
-              <AvatarFallback>
-                {userProfile.username.charAt(0).toUpperCase()}
-              </AvatarFallback>
-            </Avatar>
-            <div>
-              <div className="flex items-center space-x-8">
-                <h1 className="text-2xl font-bold">{userProfile.username}</h1>
 
-                {isOwnProfile ? (
-                  <Link href="/edit-profile">
-                    <Button variant="secondary">Edit Profile</Button>
-                  </Link>
-                ) : (
-                  <Button
-                    variant={isFollowing ? "destructive" : "secondary"}
-                    onClick={handleFollowUnfollow}
-                  >
-                    {isFollowing ? "Unfollow" : "Follow"}
-                  </Button>
-                )}
-              </div>
-              <div className="flex items-center space-x-8 mt-6 mb-6">
-                <div>
-                  <span className="font-bold">{userProfile.posts.length}</span>
-                  <span> Posts</span>
-                </div>
-                <div>
-                  <span className="font-bold">{followerCount}</span>
-                  <span> Followers</span>
-                </div>
-                <div>
-                  <span className="font-bold">{followingCount}</span>
-                  <span> Following</span>
+        <div className="w-[90%] sm:w-[85%] max-w-[935px] mx-auto">
+          {/* Profile Header */}
+          <div className="mt-10 md:mt-12 animate-fade-in-up">
+            <div className="flex md:flex-row flex-col md:items-start gap-8 md:gap-16 pb-10 border-b border-white/[0.06]">
+              <div className="flex-shrink-0 flex md:justify-start justify-center">
+                <div className="relative group">
+                  <div className="absolute -inset-1 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full opacity-20 group-hover:opacity-40 blur transition-opacity duration-300" />
+                  <Avatar className="relative w-36 h-36 ring-4 ring-[hsl(230,25%,8%)] shadow-xl">
+                    <AvatarImage src={userProfile.profilePicture} className="h-full w-full object-cover object-center" />
+                    <AvatarFallback className="bg-gradient-to-br from-indigo-600 to-purple-600 text-white text-4xl font-bold">
+                      {userProfile.username.charAt(0).toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
                 </div>
               </div>
-              <p className="w-[80%] font-medium">{userProfile.bio || "No bio yet"}</p>
+
+              <div className="flex-1">
+                <div className="flex items-center gap-4 flex-wrap">
+                  <h1 className="text-2xl font-bold text-white">{userProfile.username}</h1>
+                  {isOwnProfile ? (
+                    <Link href="/edit-profile">
+                      <Button variant="outline" className="rounded-xl border-white/10 text-white/70 bg-transparent hover:bg-white/5 hover:border-indigo-400/30 transition-all">
+                        <Settings className="w-4 h-4 mr-2" />Edit Profile
+                      </Button>
+                    </Link>
+                  ) : (
+                    <Button
+                      onClick={handleFollowUnfollow}
+                      className={cn("rounded-xl px-6 transition-all duration-300",
+                        isFollowing
+                          ? "bg-white/5 text-white/70 hover:bg-red-500/10 hover:text-red-400 border border-white/10"
+                          : "btn-gradient"
+                      )}>
+                      {isFollowing ? <><UserMinus className="w-4 h-4 mr-2" />Unfollow</> : <><UserPlus className="w-4 h-4 mr-2" />Follow</>}
+                    </Button>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-10 mt-6 mb-4">
+                  {[{ val: userProfile.posts.length, label: "Posts" }, { val: followerCount, label: "Followers" }, { val: followingCount, label: "Following" }].map(s => (
+                    <div key={s.label} className="text-center">
+                      <span className="text-xl font-bold text-white">{s.val}</span>
+                      <p className="text-xs text-white/35 mt-0.5 uppercase tracking-wider">{s.label}</p>
+                    </div>
+                  ))}
+                </div>
+                <p className="text-white/50 leading-relaxed max-w-md">{userProfile.bio || "No bio yet"}</p>
+              </div>
             </div>
           </div>
-          <div className="mt-10">
-            <div className="flex items-center justify-center space-x-14">
-              <div
-                className={cn(
-                  "flex items-center space-x-2 cursor-pointer",
-                  postOrSave === "POST" && "text-blue-500"
-                )}
-                onClick={() => setPostOrSave("POST")}
-              >
-                <Grid />
-                <span className="font-semibold">Posts</span>
-              </div>
+
+          {/* Tabs */}
+          <div className="mt-6 border-b border-white/[0.06]">
+            <div className="flex items-center justify-center">
+              <button className={cn("flex items-center gap-2 px-6 py-3 text-sm font-semibold border-b-2 transition-all",
+                postOrSave === "POST" ? "border-indigo-500 text-indigo-400" : "border-transparent text-white/30 hover:text-white/50"
+              )} onClick={() => setPostOrSave("POST")}><Grid className="w-4 h-4" />Posts</button>
               {isOwnProfile && (
-                <div
-                  className={cn(
-                    "flex items-center space-x-2 cursor-pointer",
-                    postOrSave === "SAVE" && "text-blue-500"
-                  )}
-                  onClick={() => setPostOrSave("SAVE")}
-                >
-                  <Bookmark />
-                  <span className="font-semibold">Saved</span>
-                </div>
+                <button className={cn("flex items-center gap-2 px-6 py-3 text-sm font-semibold border-b-2 transition-all",
+                  postOrSave === "SAVE" ? "border-indigo-500 text-indigo-400" : "border-transparent text-white/30 hover:text-white/50"
+                )} onClick={() => setPostOrSave("SAVE")}><Bookmark className="w-4 h-4" />Saved</button>
               )}
             </div>
+          </div>
+
+          <div className="animate-fade-in mt-6">
             {postOrSave === "POST" && <Post userProfile={userProfile} />}
             {postOrSave === "SAVE" && <Saved userProfile={userProfile} />}
           </div>
@@ -220,28 +188,14 @@ const Profile = ({ id }: Props) => {
       </div>
 
       <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
-        <DialogContent className="sm:max-w-[425px]">
+        <DialogContent className="sm:max-w-[425px] border-white/10" style={{ background: 'hsl(230,25%,12%)' }}>
           <DialogHeader>
-            <DialogTitle>Delete Account</DialogTitle>
-            <DialogDescription>
-              Are you sure you want to delete your account? This action cannot be undone.
-            </DialogDescription>
+            <DialogTitle className="text-white">Delete Account</DialogTitle>
+            <DialogDescription className="text-white/50">This action cannot be undone.</DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setShowDeleteDialog(false)}
-              disabled={isDeleting}
-            >
-              Cancel
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={handleDeleteAccount}
-              disabled={isDeleting}
-            >
-              {isDeleting ? "Deleting..." : "Delete Account"}
-            </Button>
+            <Button variant="outline" onClick={() => setShowDeleteDialog(false)} disabled={isDeleting} className="border-white/10 text-white/70 bg-transparent">Cancel</Button>
+            <Button variant="destructive" onClick={handleDeleteAccount} disabled={isDeleting}>{isDeleting ? "Deleting..." : "Delete Account"}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

@@ -3,7 +3,7 @@
 import { Post as PostType, User } from "@/types";
 import React, { useEffect, useCallback } from "react";
 import { Dialog, DialogContent, DialogTitle } from "../ui/dialog";
-import { HeartIcon, MessageCircle, Send, Bookmark, MoreHorizontal } from "lucide-react";
+import { HeartIcon, MessageCircle, Send, Bookmark, MoreHorizontal, X } from "lucide-react";
 import Image from "next/image";
 import { Avatar, AvatarImage, AvatarFallback } from "../ui/avatar";
 import { Button } from "../ui/button";
@@ -50,16 +50,13 @@ const PostDialog = ({
   const [comment, setComment] = React.useState("");
   const posts = useSelector((state: RootState) => state.posts.posts);
 
-  // Get the latest version of the post from Redux state
   const currentPost = React.useMemo(() => {
     if (!post) return null;
     return posts.find(p => p._id === post._id) || post;
   }, [post, posts]);
 
   useEffect(() => {
-    if (!isOpen) {
-      setComment("");
-    }
+    if (!isOpen) setComment("");
   }, [isOpen]);
 
   const handleCommentSubmit = useCallback(() => {
@@ -75,16 +72,19 @@ const PostDialog = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[90%] md:max-w-[800px] p-0 overflow-hidden">
-        {/* Accessible Dialog Title (visually hidden) */}
-        <span style={{ position: 'absolute', width: 1, height: 1, padding: 0, margin: -1, overflow: 'hidden', clip: 'rect(0,0,0,0)', whiteSpace: 'nowrap', border: 0 }}>
-          <DialogTitle>
-            {currentPost.caption ? currentPost.caption : "Post details"}
-          </DialogTitle>
+      <DialogContent 
+        className="sm:max-w-[92vw] md:max-w-[900px] p-0 overflow-hidden border-none"
+        style={{ background: 'hsl(230, 25%, 10%)', borderRadius: '20px' }}
+        aria-describedby="post-dialog-desc"
+      >
+        <span className="sr-only">
+          <DialogTitle>{currentPost.caption ? currentPost.caption : "Post details"}</DialogTitle>
+          <p id="post-dialog-desc">View post details, comments, and interactions</p>
         </span>
-        <div className="flex flex-col md:flex-row h-[600px]">
-          {/* Media Section - Left Side */}
-          <div className="relative w-full md:w-[55%] bg-black flex items-center justify-center">
+
+        <div className="flex flex-col md:flex-row h-[85vh] md:h-[600px]">
+          {/* Media - Left */}
+          <div className="relative w-full md:w-[55%] bg-black/40 flex items-center justify-center">
             {currentPost.media?.type === "image" ? (
               <div className="relative w-full h-full">
                 <Image
@@ -97,47 +97,33 @@ const PostDialog = ({
                 />
               </div>
             ) : currentPost.media?.type === "video" ? (
-              <video
-                src={currentPost.media.url}
-                controls
-                className="w-full h-full object-contain"
-              />
+              <video src={currentPost.media.url} controls className="w-full h-full object-contain" />
             ) : null}
           </div>
 
-          {/* Info Section - Right Side */}
-          <div className="w-full md:w-[45%] flex flex-col bg-white">
-            {/* Header */}
-            <div className="p-4 border-b flex items-center justify-between">
-              <div className="flex items-center space-x-3">
-                <Avatar className="w-8 h-8">
-                  <AvatarImage
-                    src={currentPost.user?.profilePicture}
-                    alt={currentPost.user?.username}
-                  />
-                  <AvatarFallback>
+          {/* Info - Right */}
+          <div className="w-full md:w-[45%] flex flex-col" style={{ background: 'hsl(230, 25%, 12%)' }}>
+            {/* User Header */}
+            <div className="p-4 border-b border-white/[0.06] flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Avatar className="w-9 h-9 ring-2 ring-white/10">
+                  <AvatarImage src={currentPost.user?.profilePicture} alt={currentPost.user?.username} className="object-cover" />
+                  <AvatarFallback className="bg-gradient-to-br from-indigo-600 to-purple-600 text-white text-xs font-bold">
                     {currentPost.user?.username?.charAt(0).toUpperCase()}
                   </AvatarFallback>
                 </Avatar>
-                <span className="font-semibold">{currentPost.user?.username}</span>
+                <span className="font-semibold text-sm text-white/90">{currentPost.user?.username}</span>
               </div>
-              <div className="flex items-center space-x-2">
+              <div className="flex items-center gap-1">
                 {isOwnPost && (
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon" className="h-8 w-8">
+                      <Button variant="ghost" size="icon" className="h-8 w-8 text-white/50 hover:text-white hover:bg-white/[0.06]">
                         <MoreHorizontal className="h-5 w-5" />
                       </Button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem
-                        className="text-red-600 focus:text-red-600"
-                        onClick={() => {
-                          if (onDelete) {
-                            onDelete();
-                          }
-                        }}
-                      >
+                    <DropdownMenuContent align="end" className="bg-[hsl(230,25%,16%)] border-white/10 text-white">
+                      <DropdownMenuItem className="text-red-400 focus:text-red-400 focus:bg-red-500/10" onClick={onDelete}>
                         Delete Post
                       </DropdownMenuItem>
                     </DropdownMenuContent>
@@ -146,12 +132,12 @@ const PostDialog = ({
               </div>
             </div>
 
-            {/* Comments Section */}
+            {/* Caption + Comments */}
             <div className="flex-1 overflow-y-auto">
               {currentPost.caption && (
-                <div className="p-4 border-b">
-                  <p className="text-sm">
-                    <span className="font-semibold mr-2">{currentPost.user?.username}</span>
+                <div className="p-4 border-b border-white/[0.04]">
+                  <p className="text-sm text-white/70 leading-relaxed">
+                    <span className="font-semibold text-white/90 mr-2">{currentPost.user?.username}</span>
                     {currentPost.caption}
                   </p>
                 </div>
@@ -159,58 +145,38 @@ const PostDialog = ({
               <Comments post={currentPost} user={currentUser || null} />
             </div>
 
-            {/* Actions and Comment Input */}
-            <div className="border-t">
+            {/* Actions */}
+            <div className="border-t border-white/[0.06]">
               <div className="p-4">
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-4">
-                    <button
-                      onClick={() => onLike?.(currentPost._id, currentPost.user)}
-                      className="focus:outline-none"
-                    >
-                      <HeartIcon
-                        className={`w-6 h-6 cursor-pointer transition-transform duration-300 ${
-                          isLiked ? "text-red-500 fill-red-500" : "text-gray-500"
-                        } ${animateHeart ? "animate-like-pop" : ""}`}
-                      />
+                  <div className="flex items-center gap-5">
+                    <button onClick={() => onLike?.(currentPost._id, currentPost.user)} className="focus:outline-none group">
+                      <HeartIcon className={`w-6 h-6 transition-all ${isLiked ? "text-rose-500 fill-rose-500" : "text-white/50 group-hover:text-rose-400"} ${animateHeart ? "animate-like-pop" : ""}`} />
                     </button>
-                    <MessageCircle className="w-6 h-6 cursor-pointer text-gray-500" />
-                    <Send className="w-6 h-6 cursor-pointer text-gray-500" />
+                    <MessageCircle className="w-6 h-6 text-white/50" />
+                    <Send className="w-5 h-5 text-white/50" />
                   </div>
-                  <button
-                    onClick={() => onSave?.(currentPost._id)}
-                    className="focus:outline-none"
-                  >
-                    <Bookmark
-                      className={`w-6 h-6 cursor-pointer transition-transform duration-300 ${
-                        isSaved ? "text-blue-500 fill-blue-500" : "text-gray-500"
-                      } ${animateBookmark ? "animate-like-pop" : ""}`}
-                    />
+                  <button onClick={() => onSave?.(currentPost._id)} className="focus:outline-none group">
+                    <Bookmark className={`w-6 h-6 transition-all ${isSaved ? "text-indigo-400 fill-indigo-400" : "text-white/50 group-hover:text-indigo-400"} ${animateBookmark ? "animate-like-pop" : ""}`} />
                   </button>
                 </div>
-                <div className="mt-2">
-                  <span className="font-semibold">{currentPost.likes.length} likes</span>
-                </div>
+                <p className="mt-2 text-sm font-semibold text-white/80">{currentPost.likes.length} likes</p>
               </div>
 
               {/* Comment Input */}
-              <div className="p-4 border-t">
-                <div className="flex items-center">
+              <div className="px-4 pb-4">
+                <div className="flex items-center gap-2 p-2 rounded-xl" style={{ background: 'rgba(255,255,255,0.04)' }}>
                   <input
                     type="text"
                     placeholder="Add a comment..."
-                    className="flex-1 outline-none text-sm"
+                    className="flex-1 bg-transparent outline-none text-sm text-white/80 placeholder:text-white/25 px-2"
                     value={comment}
                     onChange={(e) => setComment(e.target.value)}
-                    onKeyPress={(e) => {
-                      if (e.key === 'Enter' && comment.trim()) {
-                        handleCommentSubmit();
-                      }
-                    }}
+                    onKeyPress={(e) => { if (e.key === 'Enter' && comment.trim()) handleCommentSubmit(); }}
                   />
                   <button
-                    className={`ml-2 font-semibold ${
-                      comment.trim() ? 'text-blue-500 hover:text-blue-600' : 'text-blue-200'
+                    className={`px-3 py-1.5 text-sm font-semibold rounded-lg transition-all ${
+                      comment.trim() ? 'text-indigo-400 hover:bg-indigo-500/10' : 'text-white/15'
                     }`}
                     onClick={handleCommentSubmit}
                     disabled={!comment.trim()}
@@ -227,4 +193,4 @@ const PostDialog = ({
   );
 };
 
-export default PostDialog; 
+export default PostDialog;

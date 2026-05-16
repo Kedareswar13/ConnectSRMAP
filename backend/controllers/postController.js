@@ -87,11 +87,14 @@ exports.getAllPost = catchAsync(async (req, res, next) => {
     })
     .sort({ createdAt: -1 }); // Sort posts by newest first
 
+  // Filter out orphaned posts (where user was deleted from DB)
+  const validPosts = posts.filter((post) => post.user != null);
+
   return res.status(200).json({
     status: "success",
-    results: posts.length,
+    results: validPosts.length,
     data: {
-      posts,
+      posts: validPosts,
     },
   });
 });
@@ -351,3 +354,37 @@ exports.addComment = catchAsync(async (req, res, next) => {
     },
   });
 });
+
+// Delete a comment
+exports.deleteComment = catchAsync(async (req, res, next) => {
+  const { postId, commentId } = req.params;
+  const userId = req.user._id;
+
+  const post = await Post.findById(postId);
+  if (!post) {
+    return next(new AppError("Post not found", 404));
+  }
+
+  const comment = await Comment.findById(commentId);
+  if (!comment) {
+    return next(new AppError("Comment not found", 404));
+  }
+
+  // Only comment author or post owner can delete
+  if (comment.user.toString() !== userId.toString() && post.user.toString() !== userId.toString()) {
+    return next(new AppError("You are not authorized to delete this comment", 403));
+  }
+
+  // Remove comment reference from post
+  post.comments = post.comments.filter(c => c.toString() !== commentId);
+  await post.save();
+
+  // Delete the comment document
+  await Comment.findByIdAndDelete(commentId);
+
+  return res.status(200).json({
+    status: "success",
+    message: "Comment deleted successfully",
+  });
+});
+

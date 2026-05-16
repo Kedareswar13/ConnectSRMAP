@@ -7,6 +7,7 @@ import {
   DialogClose,
   DialogContent,
   DialogTitle,
+  DialogDescription,
   DialogTrigger,
 } from "../ui/dialog";
 import { Ellipsis } from "lucide-react";
@@ -26,35 +27,18 @@ type Props = {
 };
 
 const DotButton = ({ post, user }: Props) => {
-  const isOwnPost = post?.user?._id === user?._id;
-
-  const isFollowing = post?.user?._id
-    ? user?.following?.includes(post.user._id)
-    : false;
-
+  const postUserId = post?.user?._id;
+  const isOwnPost = postUserId === user?._id;
+  const isFollowing = postUserId ? user?.following?.includes(postUserId) : false;
   const dispatch = useDispatch();
 
   const handleFollowUnfollow = async () => {
-    if (!user || !user._id) {
-      toast.error("User not found. Please log in.");
-      return;
-    }
-
+    if (!user || !user._id) { toast.error("Please log in."); return; }
+    if (!postUserId) { toast.error("Post user not found."); return; }
     try {
-      const result = await axios.post(
-        `${BASE_API_URL}/users/follow-unfollow/${post?.user._id}`,
-        {},
-        { withCredentials: true }
-      );
-
-      if (result.data.status === "success") {
-        dispatch(setAuthUser(result.data.user));
-        toast.success(result.data.message);
-      } else {
-        toast.error("Something went wrong!");
-      }
+      const result = await axios.post(`${BASE_API_URL}/users/follow-unfollow/${postUserId}`, {}, { withCredentials: true });
+      if (result.data.status === "success") { dispatch(setAuthUser(result.data.data.user)); toast.success(result.data.message); }
     } catch (error: unknown) {
-      console.error("Error following/unfollowing:", error);
       const axiosError = error as AxiosError<{ message?: string }>;
       toast.error(axiosError?.response?.data?.message || "Failed to follow/unfollow");
     }
@@ -62,60 +46,58 @@ const DotButton = ({ post, user }: Props) => {
 
   const handleDeletePost = async () => {
     if (!post?._id) return;
-
     try {
-      const result = await axios.delete(
-        `${BASE_API_URL}/posts/delete/${post._id}`,
-        { withCredentials: true }
-      );
-
-      if (result.data.status === "success") {
-        dispatch(deletePost(post._id));
-        toast.success("Post deleted successfully");
-      } else {
-        toast.error("Failed to delete post");
-      }
+      const result = await axios.delete(`${BASE_API_URL}/posts/delete-post/${post._id}`, { withCredentials: true });
+      if (result.data.status === "success") { dispatch(deletePost(post._id)); toast.success("Post deleted"); }
     } catch (error: unknown) {
-      console.error("Error deleting post:", error);
       const axiosError = error as AxiosError<{ message?: string }>;
       toast.error(axiosError?.response?.data?.message || "Failed to delete post");
     }
   };
 
   return (
-    <div>
-      <Dialog>
-        <DialogTrigger asChild>
-          <button>
-            <Ellipsis className="w-8 h-8 text-black" />
-          </button>
-        </DialogTrigger>
-        <DialogContent className="bg-white text-black dark:bg-neutral-900 dark:text-white shadow-xl">
-          <DialogTitle>Post Options</DialogTitle>
-          <div className="space-y-4 flex flex-col justify-center items-center mx-auto">
-            {!isOwnPost && (
-              <div>
-                <Button 
-                  variant={isFollowing ? "destructive" : "secondary"}
-                  onClick={handleFollowUnfollow}
-                >
-                  {isFollowing ? "Unfollow" : "Follow"}
-                </Button>
-              </div>
-            )}
-            <Link href={`/profile/${post?.user._id}`}>
-              <Button variant={"secondary"}>About This Account</Button>
-            </Link>
-            {isOwnPost && (
-              <Button variant={"destructive"} onClick={handleDeletePost}>
-                Delete Post
+    <Dialog>
+      <DialogTrigger asChild>
+        <button className="p-1 rounded-full hover:bg-white/[0.06] transition-colors">
+          <Ellipsis className="w-5 h-5 text-white/40" />
+        </button>
+      </DialogTrigger>
+      <DialogContent
+        className="sm:max-w-[320px] border-none p-6"
+        style={{ background: 'hsl(230, 25%, 12%)', borderRadius: '20px' }}
+      >
+        <DialogTitle className="text-white text-center mb-4">Post Options</DialogTitle>
+        <DialogDescription className="sr-only">Follow, unfollow, or delete post options</DialogDescription>
+        <div className="space-y-2 flex flex-col">
+          {!isOwnPost && postUserId && (
+            <Button
+              variant="ghost"
+              className={`w-full justify-center rounded-xl py-3 ${isFollowing ? 'text-rose-400 hover:bg-rose-500/10' : 'text-indigo-400 hover:bg-indigo-500/10'}`}
+              onClick={handleFollowUnfollow}
+            >
+              {isFollowing ? "Unfollow" : "Follow"}
+            </Button>
+          )}
+          {postUserId && (
+            <Link href={`/profile/${postUserId}`} className="w-full">
+              <Button variant="ghost" className="w-full justify-center rounded-xl py-3 text-white/60 hover:bg-white/[0.06]">
+                About This Account
               </Button>
-            )}
-            <DialogClose>Cancel</DialogClose>
-          </div>
-        </DialogContent>
-      </Dialog>
-    </div>
+            </Link>
+          )}
+          {isOwnPost && (
+            <Button variant="ghost" className="w-full justify-center rounded-xl py-3 text-rose-400 hover:bg-rose-500/10" onClick={handleDeletePost}>
+              Delete Post
+            </Button>
+          )}
+          <DialogClose asChild>
+            <Button variant="ghost" className="w-full justify-center rounded-xl py-3 text-white/30 hover:text-white/50 hover:bg-white/[0.04]">
+              Cancel
+            </Button>
+          </DialogClose>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 };
 

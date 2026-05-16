@@ -124,7 +124,7 @@ const Post = ({ userProfile }: Props) => {
   const handleDeletePost = async (postId: string) => {
     try {
       const result = await axios.delete(
-        `${BASE_API_URL}/posts/${postId}`,
+        `${BASE_API_URL}/posts/delete-post/${postId}`,
         { withCredentials: true }
       );
 

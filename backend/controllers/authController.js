@@ -206,7 +206,7 @@ exports.logout = catchAsync(async (req, res, next) => {
       expires: new Date(Date.now() + 10 * 1000), // Expires in 10 seconds
       httpOnly: true, // Prevents XSS attacks
       secure: process.env.NODE_ENV === "production", // Only secure in production
-      sameSite: "None", // Allows cross-site logout if necessary
+      sameSite: process.env.NODE_ENV === "production" ? "None" : "Lax", // Cross-site cookie handling
   });
 
   res.status(200).json({

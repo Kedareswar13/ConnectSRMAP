@@ -4,9 +4,17 @@ const AppError = require("../utils/appError");
 const getDataUri = require("../utils/datauri");
 const { uploadToCloudinary } = require("../utils/cloudinary");
 const Notification = require("../models/notificationModel");
+const Post = require("../models/postModel");
+const Comment = require("../models/commentModel");
 
 exports.getProfile = catchAsync(async (req, res, next) => {
   const { id } = req.params;
+
+  // Validate ObjectId to prevent CastError crashes
+  const mongoose = require("mongoose");
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    return next(new AppError("Invalid user ID", 400));
+  }
 
   const user = await User.findById(id)
     .select(

@@ -2,11 +2,11 @@
 import React, { useState, useRef, useEffect, ChangeEvent } from "react";
 import { useRouter } from "next/navigation";
 import { useDispatch } from "react-redux";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "../ui/dialog";
 import Image from "next/image";
 import LoadingButton from "../Helper/loadingButton";
 import { Button } from "../ui/button";
-import { ImageIcon, VideoIcon } from "lucide-react";
+import { ImageIcon, VideoIcon, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { BASE_API_URL } from "@/server";
 import axios from "axios";
@@ -29,64 +29,39 @@ const CreatePostModal = ({ isOpen, onClose }: Props) => {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
-    if (!isOpen) {
-      setSelectedFile(null);
-      setPreviewUrl(null);
-      setCaption("");
-    }
+    if (!isOpen) { setSelectedFile(null); setPreviewUrl(null); setCaption(""); }
   }, [isOpen]);
-
-  const handleButtonClick = () => {
-    fileInputRef.current?.click();
-  };
 
   const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
     if (event.target.files && event.target.files[0]) {
       const file = event.target.files[0];
-
-      // Validate file type: allow images or videos
       if (!file.type.startsWith("image/") && !file.type.startsWith("video/")) {
-        toast.error("Please select a valid image or video file!");
-        return;
+        toast.error("Please select a valid image or video file!"); return;
       }
-
-      // Validate file size (e.g., 10MB maximum)
       if (file.size > 20 * 1024 * 1024) {
-        toast.error("File size should not exceed 10MB!");
-        return;
+        toast.error("File size should not exceed 20MB!"); return;
       }
-
-      const fileUrl = URL.createObjectURL(file);
       setSelectedFile(file);
-      setPreviewUrl(fileUrl);
+      setPreviewUrl(URL.createObjectURL(file));
     }
   };
 
   const handleCreatePost = async () => {
     if (!selectedFile) return;
-
     const formData = new FormData();
     formData.append("caption", caption);
-    // Append file with key "media" for the backend to pick up
     formData.append("media", selectedFile);
-
     const createPostReq = async () =>
       await axios.post(`${BASE_API_URL}/posts/create-post`, formData, {
         withCredentials: true,
-        headers: {
-          "Content-Type": "multipart/form-data",
-        },
+        headers: { "Content-Type": "multipart/form-data" },
       });
-
     const result = await handleAuthRequest(createPostReq, setIsLoading);
-
     if (result) {
       toast.success("Post created successfully!");
-      dispatch(addPost(result?.data?.data?.post)); // Optional: Add to Redux
-      setSelectedFile(null);
-      setPreviewUrl(null);
-      setCaption("");
-      onClose(); // Close the modal
+      dispatch(addPost(result?.data?.data?.post));
+      setSelectedFile(null); setPreviewUrl(null); setCaption("");
+      onClose();
       router.push("/");
       router.refresh();
     }
@@ -94,27 +69,19 @@ const CreatePostModal = ({ isOpen, onClose }: Props) => {
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="bg-white text-black dark:bg-neutral-900 dark:text-white shadow-xl">
+      <DialogContent
+        className="border-none sm:max-w-[480px]"
+        style={{ background: 'hsl(230, 25%, 12%)', borderRadius: '20px' }}
+      >
         {previewUrl ? (
-          // Show preview based on file type
-          <div className="flex flex-col justify-center items-center text-center space-y-4">
-            <div className="mt-4">
+          <div className="flex flex-col items-center space-y-4">
+            <DialogTitle className="sr-only">Create New Post</DialogTitle>
+            <DialogDescription className="sr-only">Preview and publish your post</DialogDescription>
+            <div className="mt-2 w-full rounded-xl overflow-hidden bg-black/30">
               {selectedFile?.type.startsWith("video/") ? (
-                <video
-                  controls
-                  src={previewUrl}
-                  className="overflow-auto max-h-96 rounded-md object-contain w-full"
-                >
-                  Your browser does not support the video tag.
-                </video>
+                <video controls src={previewUrl} className="max-h-80 rounded-xl object-contain w-full" />
               ) : (
-                <Image
-                  src={previewUrl}
-                  alt="Preview"
-                  width={400}
-                  height={400}
-                  className="overflow-auto max-h-96 rounded-md object-contain w-full"
-                />
+                <Image src={previewUrl} alt="Preview" width={400} height={400} className="max-h-80 rounded-xl object-contain w-full" />
               )}
             </div>
             <input
@@ -122,58 +89,46 @@ const CreatePostModal = ({ isOpen, onClose }: Props) => {
               value={caption}
               onChange={(e) => setCaption(e.target.value)}
               placeholder="Write a caption ..."
-              className="mt-4 p-2 border rounded-md w-full text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-600"
+              className="input-dark w-full px-4 py-2.5 text-sm"
             />
-            <div className="flex space-x-4 mt-4">
+            <div className="flex gap-3 w-full">
               <LoadingButton
-                className="bg-blue-600 text-white hover:bg-blue-700"
+                className="flex-1 btn-gradient !rounded-xl"
                 isLoading={isLoading}
                 onClick={handleCreatePost}
               >
                 Create Post
               </LoadingButton>
               <Button
-                className="bg-gray-500 text-white hover:bg-gray-600"
-                onClick={() => {
-                  setPreviewUrl(null);
-                  setSelectedFile(null);
-                  setCaption("");
-                  onClose();
-                }}
+                className="bg-white/5 text-white/60 hover:bg-white/10 border border-white/10 rounded-xl"
+                onClick={() => { setPreviewUrl(null); setSelectedFile(null); setCaption(""); onClose(); }}
               >
                 Cancel
               </Button>
             </div>
           </div>
         ) : (
-          // Default view before a file is selected
           <>
             <DialogHeader>
-              <DialogTitle className="text-center mt-3 mb-3">
-                Upload Photo or Video
-              </DialogTitle>
+              <DialogTitle className="text-center text-white mt-2">Create New Post</DialogTitle>
+              <DialogDescription className="sr-only">Select a photo or video</DialogDescription>
             </DialogHeader>
-            <div className="flex flex-col items-center justify-center text-center space-y-4">
-              <div className="flex space-x-2 text-gray-600">
-                <ImageIcon size={40}/>
-                <VideoIcon size={40}/>
+            <div className="flex flex-col items-center justify-center py-10 space-y-5">
+              <div className="w-20 h-20 rounded-full bg-white/5 flex items-center justify-center">
+                <Upload className="w-8 h-8 text-white/30" />
               </div>
-              <p className="text-gray-600 mt-4">
-                Select a photo or video from your computer
-              </p>
+              <div className="flex gap-3 text-white/25">
+                <ImageIcon size={28} />
+                <VideoIcon size={28} />
+              </div>
+              <p className="text-white/35 text-sm">Drag and drop or select a file</p>
               <Button
-                className="bg-blue-600 text-white hover:bg-blue-700"
-                onClick={handleButtonClick}
+                className="btn-gradient !rounded-xl px-8"
+                onClick={() => fileInputRef.current?.click()}
               >
                 Select from computer
               </Button>
-              <input
-                type="file"
-                accept="image/*,video/*"
-                className="hidden"
-                ref={fileInputRef}
-                onChange={handleFileChange}
-              />
+              <input type="file" accept="image/*,video/*" className="hidden" ref={fileInputRef} onChange={handleFileChange} />
             </div>
           </>
         )}
